@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rune Duel UI 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;900&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{--sw-h:52px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#07080b;color:#e8e8ea;font-family:'Noto Sans KR',system-ui,sans-serif;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+#sw{position:fixed;left:0;right:0;top:0;height:var(--sw-h);display:flex;align-items:center;gap:14px;padding:0 16px;background:#0e1016;border-bottom:1px solid #22252e;z-index:50}
+.sw-brand{font-weight:900;letter-spacing:.06em;font-size:14px;white-space:nowrap}
+.sw-brand small{font-weight:500;color:#8b90a0;margin-left:6px;letter-spacing:0}
+#sw-v{display:flex;gap:6px;overflow-x:auto}
+#sw-v button{border:1px solid #2a2e3a;background:#151822;color:#c9ccd6;padding:7px 12px;border-radius:8px;font-size:13px;white-space:nowrap;transition:.2s}
+#sw-v button b{color:#fff;margin-right:4px}
+#sw-v button:hover{border-color:#4b5263;color:#fff}
+#sw-v button.on{background:#e8e8ea;color:#0b0c10;border-color:#e8e8ea}
+#sw-v button.on b{color:#0b0c10}
+#sw-s{margin-left:auto;background:#151822;color:#e8e8ea;border:1px solid #2a2e3a;border-radius:8px;padding:7px 10px;font-size:13px}
+#sw-info{background:#151822;color:#e8e8ea;border:1px solid #2a2e3a;border-radius:8px;padding:7px 12px;font-size:13px}
+#sw-info.on{background:#3046ff;border-color:#3046ff}
+#wrap{position:fixed;left:0;right:0;top:var(--sw-h);bottom:0;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1440px;height:810px;transform-origin:0 0;overflow:hidden;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#screens,#chrome,#layer,#toasts{position:absolute;inset:0}
+#chrome{pointer-events:none;z-index:20}
+#chrome .pe{pointer-events:auto}
+#layer{z-index:30;pointer-events:none}
+#layer>*{pointer-events:auto}
+#toasts{z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:90px;gap:8px}
+.screen{position:absolute;inset:0;overflow:hidden}
+#memo{position:fixed;right:16px;top:calc(var(--sw-h) + 12px);width:360px;max-height:calc(100% - var(--sw-h) - 24px);overflow:auto;background:#10131bf2;border:1px solid #2a2e3a;border-radius:12px;padding:18px 20px;z-index:60;font-size:13px;line-height:1.65;color:#cfd3dd;backdrop-filter:blur(6px)}
+#memo h3{margin:0 0 4px;color:#fff;font-size:16px}
+#memo .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:#3046ff;color:#fff;margin-bottom:10px}
+#memo h4{margin:14px 0 4px;color:#fff;font-size:13px}
+#memo ul{margin:0;padding-left:18px}
+#memo .x{position:absolute;right:12px;top:10px;background:none;border:0;color:#8b90a0;font-size:18px}
+#sw-info{white-space:nowrap}
+@media (max-width:1100px){.sw-brand small{display:none}#sw-v button{padding:7px 9px}}
+@media (max-width:760px){.sw-brand small{display:none}#sw-s{max-width:110px}#memo{left:16px;width:auto}}
+</style>
+</head>
+<body>
+<header id="sw">
+  <div class="sw-brand">RUNE DUEL<small>룬 결투 · UI/UX 시안 5종</small></div>
+  <nav id="sw-v"></nav>
+  <select id="sw-s" aria-label="화면 이동"></select>
+  <button id="sw-info">기획 메모</button>
+</header>
+<main id="wrap">
+  <div id="stage">
+    <div id="screens"></div>
+    <div id="chrome"></div>
+    <div id="layer"></div>
+    <div id="toasts"></div>
+  </div>
+</main>
+<aside id="memo" hidden></aside>
+<script src="js/core.js?v=2"></script>
+<script src="js/battle.js?v=2"></script>
+<script src="js/result.js?v=2"></script>
+<script src="js/variant-a.js?v=2"></script>
+<script src="js/variant-b.js?v=2"></script>
+<script src="js/variant-c.js?v=2"></script>
+<script src="js/variant-d.js?v=2"></script>
+<script>App.init()</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Rune Duel 열기 (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173/",
+      "preLaunchTask": "Rune Duel 서버 실행"
+    },
+    {
+      "name": "Rune Duel 열기 (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173/",
+      "preLaunchTask": "Rune Duel 서버 실행"
+    }
+  ]
+}
