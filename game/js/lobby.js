@@ -13,7 +13,7 @@ function homeHTML() {
   return `<div class="home">
     <div class="ace-show" id="aceShow"><div class="ace ${isRed(ace.suit) ? 'red' : ''}" id="ace"><div class="shine"></div>
       <div class="ace-h"><b>${codeHTML(ace)}</b><span>${GRADES[ace.g].ko} · ${ace.k === 'A' ? '액티브' : '패시브'}</span></div>
-      <div class="ace-art"><i class="ec-sg a">${suitSvg(ace.suit)}</i>${icon(ace.cat, 110)}<i class="ec-sg b">${suitSvg(ace.suit)}</i></div>
+      <div class="ace-art">${icon(ace.cat, 130)}</div>
       <h3>${ace.name}</h3><p>${ace.desc}</p></div></div>
     <div class="myace"><small>MY ACE</small><h2>이번 판을 끝내는 한 장</h2>
       <p>가장 많이 MVP가 된 카드가 홈에 걸립니다. <em>MVP ${st.topMvpN}회</em></p>

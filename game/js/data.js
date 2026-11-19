@@ -139,33 +139,43 @@ function historyStats(h) {
 }
 
 /* ---------- 아이콘 ---------- */
-const ICONP = {
-  공격: 'M5 19L15 9M13 5l6-1-1 6M7 13l4 4M4 20l2-2', 방어: 'M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z', 유틸: 'M12 5v14M5 12h14',
-  방해: 'M6 6l12 12M18 6L6 18', 강화: 'M12 19V5M6 11l6-6 6 6', 특수: 'M12 3l8 9-8 9-8-9z', 함정: 'M6 19L10 5M11 19l4-14M16 19l4-14',
-  와일드: 'M12 3l2.6 6 6.4.6-4.9 4.3 1.5 6.3L12 17l-5.6 3.2 1.5-6.3L3 9.6l6.4-.6z',
+// 효과 카드 분류 아이콘 : 디자인 시안(각진 기하학 실루엣)을 668×668 SVG로 옮김. 색은 currentColor(문양 색)
+// 유틸·특수는 시안이 아직 없어 같은 스타일로 임시 제작
+const SK_ = 'fill="none" stroke="currentColor" stroke-linejoin="miter"';
+const ICON_SVG = {
+  공격: '<path d="M320 100H568V345L548 325L530 135L340 118Z"/><path d="M380 200L498 170L468 288L255 450L215 410Z"/><path d="M148 350L318 518L272 530L136 395Z"/><path d="M200 450L228 475L130 545L118 533Z"/><rect x="100" y="535" width="33" height="35"/>',
+  함정: '<path d="M258 100H345L97 348V261Z"/><path d="M497 100H570L97 573V500Z"/><path d="M570 265V350L350 570H265Z"/>',
+  방어: `<path ${SK_} stroke-width="26" d="M112 112H230L333 172L436 112H556V386L515 410V466L333 648L152 466V410L112 386Z"/>`,
+  와일드: `<g ${SK_} stroke-width="26"><path stroke-width="32" d="M333 150L516 333L333 516L150 333Z"/><path d="M100 232V100H232M436 100H568V232M568 436V568H436M232 568H100V436"/><path d="M262 95L333 24L404 95M573 262L644 333L573 404M404 573L333 644L262 573M95 404L24 333L95 262"/></g>`,
+  방해: `<g ${SK_} stroke-width="22"><path d="M250 182V100L333 18L650 335L560 425H492V397H440V342H390V300H345V238H298V182Z"/><path transform="rotate(180 333 333)" d="M250 182V100L333 18L650 335L560 425H492V397H440V342H390V300H345V238H298V182Z"/></g>`,
+  강화: '<path d="M275 100H568V392L522 348L500 262L388 322L350 282L410 168L320 145Z"/><path transform="rotate(180 336 321)" d="M275 100H568V392L522 348L500 262L388 322L350 282L410 168L320 145Z"/><rect x="286" y="282" width="100" height="78"/><rect x="310" y="305" width="52" height="32" fill="none" stroke="#fff" stroke-width="9"/>',
+  유틸: '<path d="M290 100H378V290H568V378H378V568H290V378H100V290H290Z"/><path fill="none" stroke="currentColor" stroke-width="20" d="M150 150H230M150 150V230M518 150H438M518 150V230M150 518H230M150 518V438M518 518H438M518 518V438"/>',
+  특수: `<path ${SK_} stroke-width="26" d="M333 80L586 333L333 586L80 333Z"/><path d="M333 230L436 333L333 436L230 333Z"/>`,
 };
 function icon(cat, size = 22) {
-  const key = Object.keys(ICONP).find(k => cat.startsWith(k)) || '특수';
-  return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONP[key]}"/></svg>`;
+  const key = Object.keys(ICON_SVG).find(k => cat.startsWith(k)) || '특수';
+  return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 668 668" fill="currentColor">${ICON_SVG[key]}</svg>`;
 }
+// 쿨타임 모래시계 (디자인 시안)
+const hourglassSvg = (size = 32) => `<svg class="ico hgl" width="${size}" height="${size}" viewBox="0 0 668 668" ${SK_} stroke-width="26"><path d="M185 112H482L380 330H287Z"/><path d="M287 340H380L482 552H185Z"/><path d="M262 100L333 22L404 100M262 566L333 644L404 566"/><path stroke-width="22" d="M150 98L112 132L235 333L112 534L150 568M518 98L556 132L433 333L556 534L518 568"/></svg>`;
 const UI_ICON = {
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>', battle: '<path d="M5 5l14 14M19 5L5 19M4 8V4h4M20 8V4h-4"/>',
   cards: '<rect x="6" y="3" width="11" height="15" rx="2"/><path d="M9 21h9a2 2 0 002-2V7"/>', deck: '<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M6 5h12M8 2h8"/>',
   history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
-  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>', glass: '<path d="M6 3h12M6 21h12M7 3c0 6 10 6 10 12M17 3c0 6-10 6-10 12M7 21c0-3 10-3 10 0"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',
 };
 const ui = (k, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${UI_ICON[k]}</svg>`;
 
 /* ---------- 카드 마크업 ---------- */
 function cardHTML(e, extra = '', attrs = '', inner = '') {
   return `<div class="ec ${e.k === 'A' ? 'act' : 'pas'} g-${e.g} ${isRed(e.suit) ? 'red' : ''} ${extra}" data-id="${e.id}" ${attrs}>
-    <div class="ec-h"><span class="ec-code"><b>${e.rank}</b>${suitSvg(e.suit)}</span><span class="ec-g">${GRADES[e.g].en}</span></div>
-    <div class="ec-n">${e.name}</div>
-    <div class="ec-t">${e.k === 'A' ? '액티브' : '패시브'} · ${e.cat}</div>
-    <div class="ec-ic"><i class="ec-sg a">${suitSvg(e.suit)}</i>${icon(e.cat, 30)}<i class="ec-sg b">${suitSvg(e.suit)}</i></div>
+    <div class="ec-h"><span class="ec-code">${suitSvg(e.suit)}<b>${e.rank}</b></span><span class="ec-g" title="${GRADES[e.g].ko}">${e.g}</span></div>
+    <div class="ec-n"><span>${e.name}</span></div>
+    <div class="ec-t">${e.k === 'A' ? '액티브' : '패시브'} &amp; ${e.cat}</div>
+    <div class="ec-ic">${icon(e.cat, 30)}</div>
     <div class="ec-d">${e.desc}</div>
-    <div class="ec-f">${e.k === 'A' ? '쿨타임 ' + e.cd + '턴' : '상시 · 공개'}</div>${holo(e)}${inner}
+    <div class="ec-f"><span>${e.k === 'A' ? `쿨타임: ${e.cd}턴` : '패시브 · 상시'}</span></div>${holo(e)}${inner}
   </div>`;
 }
 // 영웅·전설 카드의 홀로그램 광택 레이어

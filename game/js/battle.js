@@ -316,7 +316,7 @@ function renderFan(side) {
     const e = EF[id], k = i - mid, style = `--x:${k * sp}px;--y:${Math.abs(k) * (side.isMe ? 9 : 4)}px;--r:${k * rot}deg;z-index:${i + 1}`;
     if (!side.isMe && e.k === 'A' && !side.revealed.has(id)) return `<div class="ec back" style="${style}" data-id="${id}"><span>비공개</span><i>◆</i></div>`;
     const st = cardState(side, id), cdv = side.cd[id] || 0;
-    const ov = st === 'cool' ? `<div class="cdov"><span class="lk">${ui('lock', 28)}</span><span class="hg">${ui('glass', 32)}</span><b>${cdv}턴</b></div>` : st === 'sealed' ? `<div class="cdov seal"><b>봉인</b></div>` : '';
+    const ov = st === 'cool' ? `<div class="cdov"><span class="lk">${ui('lock', 28)}</span><span class="hg">${hourglassSvg(32)}</span><b>${cdv}턴</b></div>` : st === 'sealed' ? `<div class="cdov seal"><b>봉인</b></div>` : '';
     const tag = st === 'ready' ? '<div class="ec-tag rd">사용 가능</div>' : st === 'usedNow' ? '<div class="ec-tag un">이번 턴 사용</div>' : st === 'passive' ? '<div class="ec-tag ps">패시브 · 자동</div>' : '';
     return cardHTML(e, 'st-' + st, `style="${style}"`, ov + tag);
   }).join('');
