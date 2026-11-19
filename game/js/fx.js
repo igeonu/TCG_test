@@ -78,6 +78,31 @@ const FX = {
     return d;
   },
   textAt(x, y, html, cls = '') { this.add('pop ' + cls, `left:${x}px;top:${y}px`, html, 1500); },
+  rarColor(g) { return g === 'L' ? '#ffd23f' : g === 'E' ? '#b06bff' : '#ffffff'; },
+  /* 필살기 컷인 : 영웅·전설 카드를 사용할 때 */
+  async cutin(e, isMe = true) {
+    const L = e.g === 'L', dur = L ? 1700 : 1250;
+    Sfx.play(L ? 'legendCut' : 'epicCut'); Music.duck(L ? 2.2 : 1.4); BG.pulse(1.5);
+    const cls = 'fx-cutin ' + (isMe ? (L ? 'leg' : 'epi') : 'rival');
+    this.add(cls, `--dur:${dur}ms`, `<div class="ci-dim"></div><div class="ci-rays"></div><div class="ci-band"><div class="ci-card">${cardHTML(e)}</div>
+      <div class="ci-txt"><small class="pix">${isMe ? (L ? '★ LEGENDARY SKILL' : '◆ EPIC SKILL') : (L ? '★ RIVAL LEGENDARY' : '◆ RIVAL EPIC')}</small><b>${e.name}</b><em>${e.desc}</em></div></div>`, dur + 100);
+    setTimeout(() => { this.flash(L ? '#fff6c8' : '#e7d2ff', L ? .6 : .4, 300); this.shake(L ? 1.3 : .8); }, dur * .16);
+    if (L) setTimeout(() => { this.ring(720, 405, '#ffd23f', 900, 700, 16); burst(720, 405, ['#ffd23f', '#fff', '#ff5a3c'], 50, 420); }, dur * .2);
+    await wait(dur * .88);
+  },
+  /* 영웅·전설 카드 획득 축하 */
+  async rarityGet(e) {
+    const L = e.g === 'L';
+    Sfx.play(L ? 'legendGet' : 'epicGet'); Music.duck(L ? 3 : 2);
+    this.flash(L ? '#fff6c8' : '#e7d2ff', .7, 450); this.shake(L ? 1.2 : .7);
+    this.add('fx-get ' + e.g, '', cardHTML(e), 1900);
+    this.ring(720, 405, this.rarColor(e.g), 1000, 900, 18);
+    setTimeout(() => this.ring(720, 405, '#fff', 700, 700, 10), 150);
+    burst(720, 405, L ? ['#ffd23f', '#fff6c8', '#fff', '#ff5a3c'] : ['#b06bff', '#e7d2ff', '#fff'], L ? 90 : 50, 460);
+    if (L) { this.confetti(200); setTimeout(() => this.confetti(100), 700); }
+    this.banner(L ? 'LEGENDARY!' : 'EPIC!', `${e.suit}${e.rank} ${e.name} 획득`, L ? '#e6a33c' : '#7d4cc4', L ? 'rainbow' : '');
+    await wait(1650);
+  },
 };
 
 /* 숫자 카운트업 + 틱 소리 + 크기 펄스 */

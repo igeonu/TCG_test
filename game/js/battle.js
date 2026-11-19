@@ -287,7 +287,10 @@ async function passiveFlash(side, ids) {
     const c = fan.querySelector(`.ec[data-id="${CSS.escape(id)}"]`); if (!c) continue;
     k++; c.classList.add('pon');
     const b = document.createElement('div'); b.className = 'fx-badge sm'; b.innerHTML = `<em>효과 발동!</em><b>${k}</b>`; c.appendChild(b);
-    Sfx.play('passive'); const p = FX.center(c); FX.ring(p.x, p.y, C.yellow, 160, 450, 6); burst(p.x, p.y, ['#ffe08a', '#fff'], 10, 70);
+    const pe = EF[id], hiR = pe && (pe.g === 'E' || pe.g === 'L'), rc = hiR ? FX.rarColor(pe.g) : C.yellow;
+    Sfx.play(hiR ? (pe.g === 'L' ? 'legendReveal' : 'epicReveal') : 'passive'); const p = FX.center(c);
+    FX.ring(p.x, p.y, rc, hiR ? 300 : 160, hiR ? 600 : 450, hiR ? 10 : 6); burst(p.x, p.y, [rc, '#fff'], hiR ? 26 : 10, hiR ? 150 : 70);
+    if (hiR) { FX.flash(rc, .3, 260); FX.textAt(p.x, p.y - 90, pe.g === 'L' ? '★ LEGENDARY' : '◆ EPIC', 'gold'); }
     await wait(380);
   }
   await wait(500);
@@ -335,11 +338,15 @@ function openDraft() {
   if (S.phase !== 1) return;
   const offer = shuffle(S.me.pool).slice(0, 3);
   if (!offer.length) { toast('효과 덱이 비었습니다 · 드래프트 생략'); oppDraft(); deal(); return; }
-  let idx = 0;
+  const tok = S.alive, hi = g => g === 'E' || g === 'L';
+  // 기본 선택 : 가장 높은 등급 카드
+  let idx = offer.reduce((b, id, i) => GRADE_ORDER[EF[id].g] > GRADE_ORDER[EF[offer[b]].g] ? i : b, 0);
+  let revealing = true, skip = false;
   const w = modal(`<div class="draft">
     <div class="dm-h"><div><h2>이번 라운드에 더할 효과를 고르세요.</h2><p>3장 중 1장만 획득 · 확정 전까지는 미리보기</p></div><span class="tagb pix">PICK 1/1</span></div>
-    <div class="dm-body"><div class="dm-cards">${offer.map((id, i) => `<div class="dm-c" data-i="${i}"><div class="dm-tag"></div>${cardHTML(EF[id])}</div>`).join('')}</div><div class="dm-prev" id="dmPrev"></div></div>
-    <div class="dm-f"><span class="mut">다른 카드를 누르면 선택이 바뀝니다 · 인벤토리가 꽉 차면 교체 화면으로 넘어갑니다</span>${btn('', '', C.red, 'id="dmOk"', 'pri')}</div></div>`, { cls: 'm-game lock', backdrop: false });
+    <div class="dm-body"><div class="dm-cards">${offer.map((id, i) => { const e = EF[id]; return `<div class="dm-c hid ${hi(e.g) ? 'rar-' + e.g : ''}" data-i="${i}"><div class="dm-tag">공개 중…</div><div class="dm-flip"><div class="dm-back">?</div>${cardHTML(e)}<div class="rar-tag">${e.g === 'L' ? '★ LEGENDARY' : '◆ EPIC'}</div></div></div>`; }).join('')}</div><div class="dm-prev" id="dmPrev"><h3>카드 공개 중…</h3><p class="mut">창을 클릭하면 바로 공개됩니다</p></div></div>
+    <div class="dm-f"><span class="mut">다른 카드를 누르면 선택이 바뀝니다 · 인벤토리가 꽉 차면 교체 화면으로 넘어갑니다</span>${btn('공개 중…', '', C.red, 'id="dmOk" disabled', 'pri')}</div></div>`, { cls: 'm-game lock', backdrop: false });
+  w.addEventListener('click', () => { if (revealing) skip = true; });
   const upd = () => {
     $$('.dm-c', w).forEach((c, i) => { c.classList.toggle('on', i === idx); c.querySelector('.dm-tag').textContent = i === idx ? '✓ 선택됨' : '선택 가능'; });
     const e = EF[offer[idx]], full = S.me.inv.length >= slotsOf(S.me), after = [...S.me.inv, e.id];
@@ -349,15 +356,39 @@ function openDraft() {
       <div class="pv-e"><b>${e.suit}${e.rank} ${e.name}</b><p>${e.desc}</p><small>${e.k === 'A' ? `액티브 · 쿨타임 ${e.cd}턴 · 획득 즉시 사용 가능` : '패시브 · 장착 즉시 상시 적용 (상대에게 공개)'}</small></div>`;
     $('#dmOk b', w).textContent = `선택 확정 · ${e.suit}${e.rank} 획득`;
   };
-  [0, 1, 2].forEach(i => setTimeout(() => Sfx.play('flip'), 120 + i * 140));
-  $$('.dm-c', w).forEach(c => c.onclick = () => { if (idx !== +c.dataset.i) { Sfx.play('select'); const p = FX.center(c); burst(p.x, p.y, ['#ffe08a', '#fff'], 12, 90); } idx = +c.dataset.i; upd(); });
-  $('#dmOk', w).onclick = () => {
-    if (w._done) return; w._done = true; Sfx.play('confirm');
-    const id = offer[idx]; oppDraft();
+  $$('.dm-c', w).forEach(c => c.onclick = () => { if (revealing) return; if (idx !== +c.dataset.i) { Sfx.play('select'); const p = FX.center(c); burst(p.x, p.y, ['#ffe08a', '#fff'], 12, 90); } idx = +c.dataset.i; upd(); });
+  $('#dmOk', w).onclick = async () => {
+    if (w._done || revealing) return; w._done = true; Sfx.play('confirm');
+    const id = offer[idx], e = EF[id]; oppDraft();
+    if (hi(e.g)) {   // 영웅·전설 획득 축하
+      closeModal(true); await FX.rarityGet(e); if (!live(tok)) return;
+      if (S.me.inv.length >= slotsOf(S.me)) { openReplace(id); return; }
+      equip(id, null); return;
+    }
     if (S.me.inv.length >= slotsOf(S.me)) { closeModal(true); openReplace(id); return; }
     equip(id, $$('.dm-c .ec', w)[idx]);
   };
-  upd();
+  // 한 장씩 공개 : 영웅·전설은 공개 전에 등급 색으로 빛나며 떨림
+  (async () => {
+    await wait(420);
+    const cs = $$('.dm-c', w);
+    for (let i = 0; i < cs.length; i++) {
+      if (!w.isConnected) return;
+      const c = cs[i], e = EF[offer[i]], L = e.g === 'L', E = e.g === 'E';
+      if ((L || E) && !skip) { c.classList.add('charging'); Sfx.play('charge', L ? 1.4 : 1); await wait(L ? 950 : 600); c.classList.remove('charging'); }
+      c.classList.remove('hid'); c.classList.add('rev');
+      $('.dm-tag', c).textContent = '선택 가능';
+      Sfx.play(L ? 'legendReveal' : E ? 'epicReveal' : 'flip');
+      const p = FX.center(c);
+      if (L) { FX.flash('#fff6c8', .55, 350); FX.ring(p.x, p.y, '#ffd23f', 440, 650, 12); FX.star(p.x, p.y, '#ffd23f', 320); burst(p.x, p.y, ['#ffd23f', '#fff6c8', '#fff'], 44, 230); FX.shake(.8); }
+      else if (E) { FX.flash('#e7d2ff', .35, 280); FX.ring(p.x, p.y, '#b06bff', 330, 550, 10); burst(p.x, p.y, ['#b06bff', '#e7d2ff', '#fff'], 28, 170); }
+      setTimeout(() => c.classList.add('done'), 200); setTimeout(() => c.classList.remove('rev'), 700);
+      await wait(skip ? 60 : L ? 650 : E ? 480 : 260);
+    }
+    revealing = false;
+    const ok = $('#dmOk', w); if (ok) ok.disabled = false;
+    upd();
+  })();
 }
 async function equip(id, srcEl) {
   const r = srcEl ? App.rectOf(srcEl) : null; closeModal();
@@ -405,7 +436,9 @@ function oppDraft() {
     s.inv = s.inv.map(x => x === lo ? id : x); delete s.cd[lo];
   } else s.inv.push(id);
   s.pool = s.pool.filter(x => x !== id); renderFan(s);
-  addLog(`상대가 효과 카드를 획득 · 장착 ${s.inv.length}`);
+  const og = EF[id].g;
+  addLog(og === 'L' ? `<b class="r">상대가 ★전설 카드를 획득했습니다!</b> · 장착 ${s.inv.length}` : og === 'E' ? `<b>상대가 ◆영웅 카드를 획득</b> · 장착 ${s.inv.length}` : `상대가 효과 카드를 획득 · 장착 ${s.inv.length}`);
+  if (og === 'L') setTimeout(() => toast('⚠ 상대가 전설 카드를 획득했습니다!', 'err'), 400);
 }
 
 /* ---------- 전투 패 ---------- */
@@ -510,6 +543,7 @@ async function useActiveInner(side, id, tok) {
   if (e.cat.includes('유틸') || e.cat.includes('방어')) side.utilUses++;
   if (!side.isMe) side.revealed.add(id);
   renderFan(side);
+  if (e.g === 'E' || e.g === 'L') { await FX.cutin(e, side.isMe); if (!live(tok)) return; }   // 필살기 컷인
   if (side.isMe) await flyCard($(`#fanMe .ec[data-id="${CSS.escape(id)}"]`), side.usedOrder);
   else {
     const c = $(`#fanOp .ec[data-id="${CSS.escape(id)}"]`);

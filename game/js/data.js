@@ -155,10 +155,12 @@ function cardHTML(e, extra = '', attrs = '', inner = '') {
     <div class="ec-t">${e.k === 'A' ? '액티브' : '패시브'} · ${e.cat}</div>
     <div class="ec-ic">${icon(e.cat, 30)}</div>
     <div class="ec-d">${e.desc}</div>
-    <div class="ec-f">${e.k === 'A' ? '쿨타임 ' + e.cd + '턴' : '상시 · 공개'}</div>${inner}
+    <div class="ec-f">${e.k === 'A' ? '쿨타임 ' + e.cd + '턴' : '상시 · 공개'}</div>${holo(e)}${inner}
   </div>`;
 }
-const miniCard = (e, extra = '', attrs = '') => `<div class="mc g-${e.g} ${isRed(e.suit) ? 'red' : ''} ${extra}" data-id="${e.id}" ${attrs}><b>${e.suit}${e.rank}</b><span>${e.name}</span><em>${icon(e.cat, 16)}</em></div>`;
+// 영웅·전설 카드의 홀로그램 광택 레이어
+const holo = e => (e.g === 'E' || e.g === 'L') ? `<i class="holo"></i>` : '';
+const miniCard = (e, extra = '', attrs = '') => `<div class="mc g-${e.g} ${isRed(e.suit) ? 'red' : ''} ${extra}" data-id="${e.id}" ${attrs}><b>${e.suit}${e.rank}</b><span>${e.name}</span><em>${icon(e.cat, 16)}</em>${holo(e)}</div>`;
 function pokerHTML(c, extra = '', attrs = '') {
   return `<div class="pc ${isRed(c.s) ? 'red' : ''} ${extra}" ${attrs}><span class="pc-tl">${c.r}<i>${c.s}</i></span><span class="pc-c">${c.s}</span><span class="pc-br">${c.r}<i>${c.s}</i></span></div>`;
 }

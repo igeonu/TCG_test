@@ -106,6 +106,14 @@ const Sfx = {
       case 'lose': Music.duck(4); [[64, 67, 71], [62, 65, 69], [60, 63, 67], [55, 58, 62]].forEach((ch, i) => this.chord(ch, i === 3 ? 1.6 : .4, 'sawtooth', .07, i * .38, { rev: .8 })); this.boom(1, 1.14); N(1.5, .25, 300, 1.14, 40, { rev: .9 }); break;
       case 'coin': T(988, .07, 'square', .18); T(1319, .25, 'square', .18, 1, .07, { rev: .4 }); break;
       case 'whoosh': N(.35, .26, 500, 0, 6000, { rev: .2 }); break;
+      // ---- 등급 연출 ----
+      case 'charge': N(.6 * p, .25, 300, 0, 9000, { rev: .3 }); T(150, .6 * p, 'sawtooth', .16, 8, 0, { rev: .3 }); for (let i = 0; i < 8; i++) T(600 + i * 120, .05, 'square', .07, 1, i * .07 * p); break;
+      case 'epicReveal': this.boom(.6); this.chord([69, 72, 76, 79, 83], .9, 'triangle', .1, 0, { rev: .8 }); [81, 84, 88].forEach((m, i) => T(midi(m), .3, 'square', .1, 1, .08 + i * .07, { rev: .6 })); break;
+      case 'legendReveal': this.boom(1); N(.8, .35, 9000, 0, 1500, { type: 'highpass', rev: .8 }); [[60, 64, 67, 72], [62, 67, 71, 74]].forEach((ch, k) => ch.forEach(m => { T(midi(m), 1.4, 'sawtooth', .05, 1, k * .12, { rev: .9, det: -8 }); T(midi(m), 1.4, 'sawtooth', .05, 1, k * .12, { rev: .9, det: 8 }); })); [84, 88, 91, 96, 100].forEach((m, i) => T(midi(m), .35, 'triangle', .14, 1, .15 + i * .06, { rev: .8 })); break;
+      case 'epicGet': [[67, 71, 74], [69, 72, 76], [71, 74, 78, 83]].forEach((ch, i) => this.chord(ch, i === 2 ? .9 : .18, 'square', .1, i * .16, { rev: .6 })); this.boom(.6, .32); N(.8, .2, 9000, .32, 2000, { type: 'highpass', rev: .7 }); break;
+      case 'legendGet': [[60, 64, 67], [65, 69, 72], [67, 71, 74], [72, 76, 79, 84]].forEach((ch, i) => { this.chord(ch, i === 3 ? 1.8 : .2, 'sawtooth', .07, i * .18, { rev: .8 }); this.chord(ch.map(n => n + 12), i === 3 ? 1.8 : .2, 'square', .05, i * .18, { rev: .8 }); }); this.boom(1.1, .54); N(1.6, .3, 10000, .54, 2500, { type: 'highpass', rev: .9 }); [84, 88, 91, 96, 100, 103].forEach((m, i) => T(midi(m), .2, 'triangle', .14, 1, .6 + i * .07, { rev: .8 })); break;
+      case 'epicCut': N(.35, .3, 400, 0, 8000); this.chord([64, 67, 71, 74], .5, 'sawtooth', .07, .18, { rev: .7 }); this.boom(.8, .18); T(1760, .4, 'square', .08, .5, .2, { rev: .6 }); break;
+      case 'legendCut': N(.5, .3, 200, 0, 9000, { rev: .4 }); T(110, .5, 'sawtooth', .2, 8, 0, { rev: .4 }); this.boom(1.3, .26); [[57, 64, 69, 72, 76]].forEach(ch => ch.forEach(m => { T(midi(m), 1.5, 'sawtooth', .06, 1, .26, { rev: .9, det: -10 }); T(midi(m), 1.5, 'sawtooth', .06, 1, .26, { rev: .9, det: 10 }); })); N(1.4, .3, 10000, .26, 2000, { type: 'highpass', rev: .9 }); [88, 93, 96, 100].forEach((m, i) => T(midi(m), .3, 'triangle', .12, 1, .4 + i * .08, { rev: .8 })); break;
     }
   },
 };
