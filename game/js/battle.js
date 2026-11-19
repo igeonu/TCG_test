@@ -246,6 +246,23 @@ function renderSteps() {
   $('#bRound').textContent = S.round; $('#bLimit').textContent = S.rules.turnLimit ? ` / ${S.rules.turnLimit}` : '';
   $$('#bSteps li').forEach(li => { const p = +li.dataset.p; li.className = p === S.phase ? 'on' : p < S.phase ? 'done' : ''; });
 }
+// 전황에 따라 배경음악·화면 분위기 전환 : 우세 / 열세 / 접전(양쪽 HP 위기)
+const MOOD_INFO = { lead: ['우세', '승기를 잡았습니다!'], behind: ['열세', '밀리고 있습니다 — 반격하세요'], clutch: ['접전', '양쪽 모두 벼랑 끝!'] };
+function battleMood() {
+  if (!S || S.ended || !S.round) return 'calm';
+  const a = S.me.hp / S.me.maxHp, b = S.op.hp / S.op.maxHp;
+  if (a <= .35 && b <= .35) return 'clutch';
+  if (a - b >= .3) return 'lead';
+  if (b - a >= .3) return 'behind';
+  return 'calm';
+}
+function updateMood() {
+  const bt = $('#bt'); if (!bt || !S) return;
+  const m = battleMood(); if (m === S.mood) return;
+  const prev = S.mood; S.mood = m; Music.setMood(m);
+  bt.classList.remove('mood-lead', 'mood-behind', 'mood-clutch'); if (m !== 'calm') bt.classList.add('mood-' + m);
+  if (m !== 'calm' && prev !== undefined) { addLog(`<b>전황 · ${MOOD_INFO[m][0]}</b> ${MOOD_INFO[m][1]}`); if (m === 'clutch') { Sfx.play('danger'); BG.pulse(1); } }
+}
 function renderHUD(side) {
   const el = side.isMe ? $('#hudMe') : $('#hudOp'); if (!el) return;
   if (!el.dataset.init) {
@@ -263,6 +280,7 @@ function renderHUD(side) {
     if (danger && !S.dangerOn) { Sfx.play('danger'); toast('위험! HP가 30% 이하입니다', 'err'); }
     S.dangerOn = danger; $('#bt').classList.toggle('danger', danger); Music.setIntense(danger);
   }
+  updateMood();
   const st = [];
   if (side.shield > 0) st.push(`<span class="hud-chip sh">실드 ${side.shield}</span>`);
   side.dots.forEach(d => st.push(`<span class="hud-chip dot">지속 피해 ${d.dmg} · ${d.turns}턴</span>`));
@@ -945,7 +963,7 @@ function endBattle(win, why) {
     ${btn('명예의 전당 →', 'HALL OF FAME', win ? C.blue : C.red, '', 'big')}`;
   $('#layer').appendChild(ov);
   $('#bt') && $('#bt').classList.remove('danger');
-  Music.setIntense(false); Music.play(win ? 'win' : 'lose');
+  Music.setIntense(false); Music.setMood('calm'); Music.play(win ? 'win' : 'lose');
   if (win) { Sfx.play('win'); FX.flash('#ffe08a', .6, 500); setTimeout(() => { burst(720, 330, ['#ffe08a', '#fff', C.blue, C.red], 80, 420); FX.ring(720, 330, '#ffe08a', 900, 900, 18); }, 450); FX.confetti(220); setTimeout(() => FX.confetti(120), 1500); }
   else { Sfx.play('lose'); FX.flash('#ff2a2a', .5, 600); FX.shake(1.6); setTimeout(() => FX.crack(), 200); }
   ov.querySelector('.btn').onclick = () => { ov.remove(); App.go('fame'); };

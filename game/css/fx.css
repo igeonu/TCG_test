@@ -108,3 +108,11 @@
 /* 호버로 카드가 떠올라도 원래 자리에 판정 영역을 남겨 떨림·클릭 누락 방지 */
 .fan:not(.op) .ec:hover::after{content:"";position:absolute;left:-6px;right:-6px;top:0;height:calc(100% + 90px)}
 .my-hand .pc::after{top:100%;bottom:auto;height:26px;padding-top:5px;line-height:16px}
+
+/* 전황 무드 : 우세(금빛) · 열세(붉은 그늘) · 접전(맥동하는 보라-빨강) */
+.bt::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity 1.2s,box-shadow 1.2s}
+.bt.mood-lead::after{opacity:1;box-shadow:inset 0 0 120px rgba(255,210,63,.28)}
+.bt.mood-behind::after{opacity:1;box-shadow:inset 0 0 160px rgba(120,0,20,.55);background:radial-gradient(ellipse at center,transparent 55%,rgba(40,0,10,.35))}
+.bt.mood-clutch::after{opacity:1;box-shadow:inset 0 0 150px rgba(190,40,255,.4);animation:clutchPulse .9s ease-in-out infinite}
+@keyframes clutchPulse{50%{box-shadow:inset 0 0 190px rgba(255,40,80,.55)}}
+.lowfx .bt.mood-clutch::after{animation:none}

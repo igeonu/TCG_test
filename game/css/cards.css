@@ -1,0 +1,61 @@
+/* =========================================================
+   카드 디자인 : 흰 바탕 · 세리프 인덱스 · 각진 기하학 문양 · 회색 패널 그림 카드 · 남색 아르데코 뒷면
+   ========================================================= */
+:root{--suit-red:#e8262c;--suit-blk:#111;--suit-blue:#2b3fd6}
+
+/* ---------- 포커 카드 ---------- */
+.pc{container-type:size;display:inline-block;background:#fff;color:var(--suit-blk);border:2px solid #111;border-radius:9px}
+.pc.red{color:var(--suit-red)}
+.pc svg{fill:currentColor;display:block}
+.pc-tl,.pc-br{position:absolute;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1cqw;font:700 21cqw/0.86 'Libre Baskerville',Georgia,'Times New Roman',serif;letter-spacing:-.07em}
+.pc-tl{left:4.5cqw;top:5cqw}.pc-br{right:4.5cqw;bottom:5cqw;transform:rotate(180deg)}
+.pc-tl b,.pc-br b{font-weight:700}
+.pc-tl svg,.pc-br svg{width:12cqw;height:12cqw}
+.pc-body{position:absolute;inset:0;pointer-events:none}
+.pip{position:absolute;width:17cqw;height:17cqw;transform:translate(-50%,-50%)}
+.pip.flip{transform:translate(-50%,-50%) rotate(180deg)}
+.pc-ace{position:absolute;left:50%;top:50%;width:58cqw;height:58cqw;transform:translate(-50%,-50%)}
+.pc-ace .f{fill:currentColor}.pc-ace .w{fill:#fff}
+.pc-fbox{position:absolute;left:17cqw;right:17cqw;top:11cqh;bottom:11cqh}
+.pc-face{width:100%;height:100%;display:block}
+.pc-face use{fill:inherit}
+.pc.red .pc-face .glow{filter:drop-shadow(0 0 2px rgba(255,90,100,.95))}
+.pc:not(.red) .pc-face .glow{filter:drop-shadow(0 0 2px rgba(150,170,255,.95))}
+/* 완성 일러스트 그림 카드 (J◆ · K◆ · K♣) */
+.pc.img{border:none;background:transparent}
+.pc-img{position:absolute;inset:0;border-radius:inherit;background:center/100% 100% no-repeat}
+/* 홈 화면 장식 카드 */
+.fpc.fpc-new{padding:0;border:none;background:transparent}
+.fpc.fpc-new .pc{width:100%;height:100%;box-shadow:3px 3px 0 rgba(0,0,0,.4)}
+
+/* ---------- 카드 뒷면 ---------- */
+.pback,.sd-b,.dm-back,.fan.op .ec.back{background:url(../assets/cards/back.webp) center/100% 100% no-repeat!important;border:none!important;color:transparent!important}
+.pback i,.sd-b,.dm-back{font-size:0!important;text-shadow:none!important}
+.fan.op .ec.back span,.fan.op .ec.back i{display:none}
+.pile{background:url(../assets/cards/back.webp) center/100% 100% no-repeat!important;border:none!important;text-shadow:0 1px 0 #000,0 0 6px #000}
+.pile span,.pile b{background:rgba(20,24,52,.78);padding:0 5px;border-radius:4px}
+
+/* ---------- 효과 카드 : 그림 카드 프레임 스타일 ---------- */
+.ec{border-width:2px;border-color:#111}
+.ec-code{display:inline-flex;align-items:center;gap:2px;font:700 19px/1 'Libre Baskerville',Georgia,serif;letter-spacing:-.05em;color:var(--suit-blk)}
+.ec.red .ec-code{color:var(--suit-red)}
+.ec-code svg{width:.72em;height:.72em;fill:currentColor}
+.ec-ic{position:relative;display:flex;align-items:center;justify-content:center;min-height:42px;padding:6px 0;border:2px solid #111;border-radius:3px;overflow:hidden;
+  background:linear-gradient(170deg,transparent calc(50% - 1.5px),#111 calc(50% - 1.5px),#111 calc(50% + 1.5px),transparent calc(50% + 1.5px)),#808080;color:var(--suit-blue)}
+.ec.red .ec-ic{color:var(--suit-red)}
+.ec-ic .ico{position:relative;z-index:1;stroke-width:3;filter:drop-shadow(1.5px 1.5px 0 #111) drop-shadow(-1px -1px 0 #111) drop-shadow(0 0 4px rgba(255,255,255,.35))}
+.ec-sg{position:absolute;width:13px;height:13px}
+.ec-sg svg{width:100%;height:100%;fill:currentColor;stroke:#111;stroke-width:1}
+.ec-sg.a{right:5px;top:4px}.ec-sg.b{left:5px;bottom:4px;transform:rotate(180deg)}
+.ec.red .ec-sg{filter:drop-shadow(0 0 3px rgba(255,90,100,.9))}
+.ec:not(.red) .ec-sg{filter:drop-shadow(0 0 3px rgba(150,170,255,.9))}
+.ec.g-L .ec-ic{background:linear-gradient(170deg,transparent calc(50% - 1.5px),#111 calc(50% - 1.5px),#111 calc(50% + 1.5px),transparent calc(50% + 1.5px)),linear-gradient(160deg,#8d8160,#6d6550)}
+.ec.g-E .ec-ic{background:linear-gradient(170deg,transparent calc(50% - 1.5px),#111 calc(50% - 1.5px),#111 calc(50% + 1.5px),transparent calc(50% + 1.5px)),linear-gradient(160deg,#82779a,#625a78)}
+/* 상대 효과 카드(작게) */
+.fan.op .ec .ec-ic{min-height:0;padding:2px 0;border-width:1.5px}
+.fan.op .ec .ec-sg{width:7px;height:7px}
+/* 큰 카드(상세·드래프트·컷인) : 그림 패널이 남는 공간을 채우고, 설명은 항상 보이게 */
+.ec .ec-ic{align-self:stretch}
+.det-c .ec-ic,.dinfo .ec-ic,.m-game .ec-ic,.ci-card .ec-ic,.fx-get .ec-ic{margin:4px 0!important;flex:1 1 auto}
+.det-c .ec-d,.dinfo .ec-d,.m-game .ec-d,.ci-card .ec-d,.fx-get .ec-d{flex:0 0 auto}
+.det-c .ec-sg,.dinfo .ec-sg,.m-game .ec-sg,.ci-card .ec-sg,.fx-get .ec-sg{width:18px;height:18px}

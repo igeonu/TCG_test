@@ -74,7 +74,7 @@ const App = {
     el.innerHTML = S.html(opts);
     host.appendChild(el);
     const from = this.screen; this.screen = screen;
-    if (screen === 'battle') Music.play('battle'); else if (screen !== 'fame' && screen !== 'report') { Music.play('lobby'); Music.setIntense(false); }
+    if (screen === 'battle') { Music.setMood('calm'); Music.play('battle'); } else if (screen !== 'fame' && screen !== 'report') { Music.play('lobby'); Music.setIntense(false); Music.setMood('calm'); }
     const ch = $('#chrome'); ch.classList.toggle('bare', !!S.full);
     $('#hdWhere').textContent = S.title || '';
     const i = tabIdx(S.tab || 'home');

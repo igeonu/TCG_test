@@ -26,7 +26,7 @@ function homeHTML() {
       <button class="row-btn" id="guideBtn" style="--c:${C.yellow}"><div><small>HOW TO PLAY</small><b>게임 방법</b></div><span class="row-tag">처음이라면</span><em>?</em></button>
       <button class="row-btn" data-go="history" style="--c:${C.gray}"><div><small>최근 기록</small><b>${last ? `${last.win ? '승리' : '패배'} · ${last.rounds}라운드 · MVP ${last.mvp}` : '기록 없음'}</b></div><div class="sq">${App.history.slice(0, 10).map(h => `<i class="${h.win ? 'w' : 'l'}"></i>`).join('')}</div></button>
     </div>
-    <div class="home-fan">${[['A', '♠'], ['7', '♥'], ['Q', '♠'], ['9', '◆'], ['7', '♣']].map(([r, s], i) => `<div class="fpc ${isRed(s) ? 'red' : ''}" style="--i:${i};--r:${(i - 2) * 10}deg;--x:${(i - 2) * 30}px"><b>${s}${r}</b></div>`).join('')}</div>
+    <div class="home-fan">${[['A', '♠'], ['7', '♥'], ['K', '◆'], ['9', '◆'], ['K', '♣']].map(([r, s], i) => `<div class="fpc fpc-new" style="--i:${i};--r:${(i - 2) * 10}deg;--x:${(i - 2) * 30}px">${pokerHTML({ r, s })}</div>`).join('')}</div>
   </div>`;
 }
 function bindTilt(el) {

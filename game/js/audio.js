@@ -141,7 +141,13 @@ const TRACKS = {
     kick: [0, 10], snare: [4, 12], hat: 2, hatVol: .05, snareVol: .05, kickVol: .35, bass: 'walk', pad: 'ep', melody: .32, lead: 'vibe' },
   // 전투 : E 단조 · 몰아치는 8비트
   battle: { bpm: 138, swing: 0, bars: [[40, [64, 67, 71]], [36, [60, 64, 67]], [38, [62, 66, 69]], [35, [63, 66, 71]]],
-    kick: [0, 4, 8, 12], snare: [4, 12], hat: 1, hatVol: .035, snareVol: .16, kickVol: .6, bass: 'drive', pad: 'stab', arp: true, melody: 0 },
+    kick: [0, 4, 8, 12], snare: [4, 12], hat: 1, hatVol: .035, snareVol: .16, kickVol: .6, bass: 'drive', pad: 'stab', arp: true, melody: 0,
+    // 전황(무드)별 변주 : 우세 = 밝은 장조 · 열세 = 반음씩 내려가는 어두운 진행 · 접전 = 빠르고 불안한 프리지안
+    moods: {
+      lead: { bpm: 1.06, bars: [[40, [64, 68, 71]], [45, [64, 69, 73]], [47, [66, 71, 75]], [44, [64, 68, 71]]] },
+      behind: { bpm: .96, bars: [[40, [64, 67, 71]], [39, [63, 67, 70]], [38, [62, 65, 69]], [37, [61, 64, 68]]] },
+      clutch: { bpm: 1.2, bars: [[40, [64, 67, 71]], [41, [65, 68, 72]], [40, [64, 67, 71]], [46, [66, 70, 73]]] },
+    } },
   // 결과(승리) : C 장조 · 밝게
   win: { bpm: 112, swing: .1, bars: [[48, [60, 64, 67, 72]], [45, [60, 64, 69, 72]], [41, [60, 65, 69, 72]], [43, [62, 67, 71, 74]]],
     kick: [0, 8], snare: [4, 12], hat: 2, hatVol: .05, snareVol: .1, kickVol: .4, bass: 'pulse', pad: 'ep', arp: true, melody: .3, lead: 'vibe' },
@@ -150,10 +156,12 @@ const TRACKS = {
     kick: [0], snare: [], hat: 0, kickVol: .3, bass: 'long', pad: 'ep', melody: .2, lead: 'vibe' },
 };
 const Music = {
-  cur: null, want: 'lobby', out: null, timer: null, next: 0, step: 0, intense: 0, duckUntil: 0,
+  cur: null, want: 'lobby', out: null, timer: null, next: 0, step: 0, intense: 0, duckUntil: 0, mood: 'calm', wantMood: 'calm',
   boot() { if (!AU.ctx || this.timer) return; this.switchTo(this.want, true); this.timer = setInterval(() => this.tick(), 25); },
   play(name) { this.want = name; if (AU.ctx && this.timer) this.switchTo(name); },
   setIntense(v) { this.intense = v ? 1 : 0; },
+  // 전투 무드 : calm(평소) · lead(내가 우세) · behind(상대가 우세) · clutch(양쪽 모두 위기). 마디가 바뀔 때 전환
+  setMood(m) { this.wantMood = m || 'calm'; if (!this.out || this.cur !== 'battle') this.mood = this.wantMood; },
   duck(sec) { if (!AU.ctx) return; const t = AU.ctx.currentTime, g = AU.musicBus.gain; this.duckUntil = t + sec; g.cancelScheduledValues(t); g.setTargetAtTime(AOPT.music * .5 * .15, t, .05); g.setTargetAtTime(AOPT.music * .5, t + sec, .6); },
   switchTo(name, first) {
     if (this.cur === name && this.out) return;
@@ -166,8 +174,10 @@ const Music = {
   tick() {
     const c = AU.ctx; if (!c || !this.out) return;
     const T = TRACKS[this.cur]; if (!T) return;
-    const bpm = T.bpm * (this.cur === 'battle' && this.intense ? 1.12 : 1);
     while (this.next < c.currentTime + .15) {
+      if (this.step % 16 === 0 && this.mood !== this.wantMood) this.mood = this.wantMood;
+      const MD = this.cur === 'battle' && T.moods && T.moods[this.mood];
+      const bpm = T.bpm * (MD ? MD.bpm : 1) * (this.cur === 'battle' && this.intense && this.mood === 'calm' ? 1.12 : 1);
       this.note(T, this.step, this.next);
       const spb = 60 / bpm / 4, sw = T.swing ? (this.step % 2 ? 1 - T.swing : 1 + T.swing) : 1;
       this.next += spb * sw; this.step = (this.step + 1) % (T.bars.length * 16);
@@ -186,9 +196,33 @@ const Music = {
     const c = AU.ctx, s = noiseSrc(), f = c.createBiquadFilter(), g = c.createGain(); f.type = type; f.frequency.value = freq;
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur); s.connect(f); f.connect(g); g.connect(this.out); s.start(t, Math.random() * 1.5); s.stop(t + dur + .02);
   },
+  // 무드 전용 레이어
+  moodLayer(mood, bar, s, t, root, ch) {
+    const B = n => midi(n);
+    if (mood === 'lead') {   // 승기를 잡은 팡파르 : 마디 첫 박 크래시 + 높은 옥타브 영웅 멜로디
+      if (s === 0) { this.nz(t, .9, .06, 5000); ch.forEach(n => this.o('sawtooth', B(n + 12), t, .5, .03, { lp: 3000, lpEnd: 900 })); }
+      const ar = [...ch, ch[0] + 12], mel = [0, 2, 1, 3, 2, 1, 0, 3];
+      if (s % 4 === 2) this.o('square', B(ar[mel[(bar * 4 + (s >> 2)) % 8]] + 12), t, .18, .03, { lp: 5000 });
+      if (bar % 2 === 1 && s >= 12) this.o('triangle', B(ch[2] + 12 + (s - 12) * 2), t, .1, .03);   // 다음 마디로 치고 올라가는 런
+    }
+    if (mood === 'behind') {   // 몰리는 상황 : 낮은 드론 + 2마디마다 반음 충돌 스팅 + 탐탐
+      if (s === 0) { this.o('sawtooth', B(root - 12), t, 1.9, .07, { lp: 300, a: .3 }); this.o('sawtooth', B(root - 11), t, 1.9, .025, { lp: 260, a: .4 }); }
+      if (bar % 2 === 1 && s === 8) { this.o('square', B(ch[0] + 24), t, .5, .035, { lp: 2500 }); this.o('square', B(ch[0] + 25), t, .5, .03, { lp: 2500 }); }
+      if (s === 13 || s === 15) this.o('sine', s === 13 ? 120 : 95, t, .22, .3, { slide: .5 });
+    }
+    if (mood === 'clutch') {   // 양쪽 모두 벼랑 끝 : 째깍이는 시계 + 16분 베이스 + 올라가는 사이렌 + 마지막 마디 스네어 롤
+      if (s % 2 === 0) this.o('square', s % 4 === 0 ? 2400 : 1800, t, .02, .03);
+      this.o('sawtooth', B(root), t, .07, .09, { lp: 1200, lpEnd: 300, q: 8 });
+      if (bar % 2 === 0 && s === 0) this.o('sawtooth', B(ch[2] + 12), t, 3.2, .025, { slide: 1.5, lp: 3000, a: 1.2 });
+      if (bar % 4 === 3 && s >= 8) this.nz(t, .06, .05 + (s - 8) * .012, 2200);
+      if (s === 0 || s === 3 || s === 8 || s === 11) this.o('sine', 55, t, .22, .45, { slide: .7 });
+    }
+  },
   note(T, step, t) {
-    const bar = Math.floor(step / 16), s = step % 16, [root, ch] = T.bars[bar % T.bars.length], nextRoot = T.bars[(bar + 1) % T.bars.length][0];
-    const hot = this.cur === 'battle' && this.intense;
+    const mood = this.cur === 'battle' ? this.mood : 'calm', MD = T.moods && T.moods[mood], BARS = MD ? MD.bars : T.bars;
+    const bar = Math.floor(step / 16), s = step % 16, [root, ch] = BARS[bar % BARS.length], nextRoot = BARS[(bar + 1) % BARS.length][0];
+    const hot = this.cur === 'battle' && (this.intense || mood === 'behind' || mood === 'clutch');
+    if (MD) this.moodLayer(mood, bar, s, t, root, ch);
     // 드럼
     if (T.kick.includes(s) || (hot && (s === 14 || s === 6))) this.o('sine', 150, t, .32, T.kickVol, { slide: .3 });
     if (T.snare.includes(s)) { this.nz(t, .16, T.snareVol, 1800); this.o('triangle', 190, t, .08, T.snareVol * .8, { slide: .6 }); }
