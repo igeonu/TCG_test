@@ -42,6 +42,53 @@ function best5(hand) {
   return bi;
 }
 
+/* ---------- 족보 가이드 (포커 초보자용 예시) ---------- */
+// ex : 예시 5장 (랭크+문양), hit : 족보를 이루는 앞쪽 카드 수 (나머지는 키커)
+const HAND_GUIDE = {
+  royal: { ex: ['A◆', 'K◆', 'Q◆', 'J◆', '10◆'], hit: 5, how: '같은 문양의 10·J·Q·K·A', tip: '가장 드문 족보입니다. 같은 문양 높은 카드 4장이 모이면 노려 볼 만합니다.' },
+  sf: { ex: ['9♠', '8♠', '7♠', '6♠', '5♠'], hit: 5, how: '같은 문양 + 숫자 5개 연속', tip: '플러시와 스트레이트를 동시에 만족해야 합니다.' },
+  quads: { ex: ['7♠', '7♥', '7♣', '7◆', 'Q♠'], hit: 4, how: '같은 숫자 4장', tip: '트리플이 나왔다면 나머지를 리롤해 마지막 1장을 노려 보세요.' },
+  full: { ex: ['10♠', '10♥', '10◆', '3♣', '3♠'], hit: 5, how: '트리플 + 원 페어', tip: '투 페어나 트리플에서 1장만 더 맞으면 완성됩니다.' },
+  flush: { ex: ['K♥', '10♥', '7♥', '4♥', '2♥'], hit: 5, how: '같은 문양 5장 (숫자 상관없음)', tip: '같은 문양이 4장이면 다른 문양 카드를 리롤하세요. 드로우 가중치 카드가 도와줍니다.' },
+  straight: { ex: ['9♣', '8◆', '7♠', '6♥', '5♣'], hit: 5, how: '숫자 5개 연속 (문양 상관없음)', tip: 'A는 가장 높게(10-J-Q-K-A)도, 가장 낮게(A-2-3-4-5)도 쓸 수 있습니다.' },
+  trips: { ex: ['8♠', '8♥', '8◆', 'K♣', '4♠'], hit: 3, how: '같은 숫자 3장', tip: '원 페어를 남기고 나머지를 리롤하면 자주 나옵니다.' },
+  two: { ex: ['J♠', 'J◆', '6♥', '6♣', 'A♠'], hit: 4, how: '같은 숫자 2장이 두 쌍', tip: '남은 1장(키커)이 높을수록 동점 승부에 유리합니다.' },
+  pair: { ex: ['Q♥', 'Q♣', '9♠', '5◆', '3♥'], hit: 2, how: '같은 숫자 2장', tip: '가장 흔한 족보입니다. 높은 숫자의 페어일수록 동점일 때 이깁니다.' },
+  high: { ex: ['K♠', '9♥', '7♣', '4◆', '2♠'], hit: 1, how: '아무 족보도 없을 때', tip: '가장 높은 카드 한 장으로 겨룹니다. 리롤로 페어를 노리세요.' },
+};
+const exCard = t => ({ r: t.slice(0, -1), s: t.slice(-1) });
+const tipCards = k => HAND_GUIDE[k].ex.map((t, i) => `<i class="hx-c ${isRed(t.slice(-1)) ? 'red' : ''} ${i < HAND_GUIDE[k].hit ? 'hit' : ''}">${t}</i>`).join('');
+function handTip(k) { const g = HAND_GUIDE[k]; return `<b>${HANDS[k][0]} · ${HANDS[k][1]}점</b><br>${g.how}<span class="hx">${tipCards(k)}</span>`; }
+function handGuideModal() {
+  const cur = S && S.me && S.me.sel.length ? evalHand(S.me.sel.map(i => S.me.hand[i])).key : null;
+  modal(`<div class="hg"><div class="gd-h"><span class="pix">HAND GUIDE</span><h3>족보 가이드</h3><span class="hg-sub">7장 중 5장을 골라 아래 족보를 만드세요 · 위로 갈수록 강합니다</span></div>
+    <div class="hg-list">${HAND_ORDER.slice(1).reverse().map(k => { const g = HAND_GUIDE[k]; return `<div class="hg-row ${k === cur ? 'cur' : ''}">
+      <div class="hg-n"><b>${HANDS[k][0]}</b><span class="num">${HANDS[k][1]}</span></div>
+      <div class="hg-cards">${g.ex.map((t, i) => pokerHTML(exCard(t), 'sm ' + (i < g.hit ? 'hit' : 'kick'))).join('')}</div>
+      <div class="hg-t"><strong>${g.how}</strong><small>${g.tip}</small></div></div>`; }).join('')}</div>
+    <p class="hg-foot">점수가 같으면 <b>높은 숫자</b> → <b>키커</b>(족보에 안 쓰인 카드) 순으로 비교합니다. 리롤은 매 턴 1회이며 행운·조커 카드로 늘어납니다.</p>
+    <div class="gd-f"><span></span>${btn('닫기', '', C.blue, 'id="hgX"', 'pri')}</div></div>`, { cls: 'm-guide m-hg' });
+  $('#hgX').onclick = () => closeModal();
+}
+// 전투 패 7장에서 "1장만 더 맞으면" 되는 족보를 찾아 초보자에게 힌트를 준다
+function drawHint(hand) {
+  const bi = best5(hand); if (!bi) return '';
+  const best = evalHand(bi.map(i => hand[i])), lvl = HAND_ORDER.indexOf(best.key);
+  const sc = {}; hand.forEach(c => sc[c.s] = (sc[c.s] || 0) + 1);
+  const fs = Object.keys(sc).find(k => sc[k] === 4);
+  if (fs && lvl < HAND_ORDER.indexOf('flush')) return `${fs} 문양이 4장 — ${fs} 1장만 더 오면 <b>플러시(${HANDS.flush[1]}점)</b>. 다른 문양 카드를 리롤해 보세요.`;
+  const vs = new Set(hand.map(c => pv(c.r))); if (vs.has(14)) vs.add(1);
+  if (lvl < HAND_ORDER.indexOf('straight')) for (let lo = 10; lo >= 1; lo--) {
+    const miss = [0, 1, 2, 3, 4].map(d => lo + d).filter(v => !vs.has(v));
+    if (miss.length === 1) return `숫자 ${pvName(miss[0] === 1 ? 14 : miss[0])} 1장만 더 오면 <b>스트레이트(${HANDS.straight[1]}점)</b>. 연속에 안 쓰이는 카드를 리롤해 보세요.`;
+  }
+  if (best.key === 'trips') return `트리플 완성! 같은 숫자 1장이 더 오면 <b>포카드</b>, 다른 페어가 생기면 <b>풀 하우스</b>입니다.`;
+  if (best.key === 'two') return `투 페어 — 두 쌍 중 하나가 1장 더 맞으면 <b>풀 하우스(${HANDS.full[1]}점)</b>입니다.`;
+  if (best.key === 'pair') return `원 페어 — 페어는 남기고 나머지를 리롤하면 <b>트리플</b>·<b>투 페어</b>를 노릴 수 있습니다.`;
+  if (best.key === 'high') return `족보 없음 — 같은 숫자 2장을 모으면 <b>원 페어(${HANDS.pair[1]}점)</b>. 낮은 카드를 리롤해 보세요.`;
+  return '';
+}
+
 /* ---------- 상태 ---------- */
 let S = null;
 function mkSide(isMe, name, deck, hp) {
@@ -74,6 +121,7 @@ function calc(side, oth) {
   const parts = []; let bonus = 0, mult = 1, crit = 0;
   side.mods.forEach(m => {
     if (m.fx.bonus) { bonus += m.fx.bonus; parts.push({ src: m.src, label: m.label, t: 'b', v: m.fx.bonus }); }
+    if (m.fx.bpct && h.base) { const v = Math.max(3, Math.round(h.base * m.fx.bpct / 100)); bonus += v; parts.push({ src: m.src, label: m.label, t: 'b', v }); }
     if (m.fx.mult) { mult *= m.fx.mult; parts.push({ src: m.src, label: m.label, t: 'm', v: m.fx.mult }); }
     if (m.fx.crit) crit += m.fx.crit;
   });
@@ -85,6 +133,7 @@ function calc(side, oth) {
     if (e.fx.link) v = side.mods.filter(m => m.src && EF[m.src] && EF[m.src].cat.startsWith('공격')).length >= 2 ? e.fx.link : 0;
     if (e.fx.shieldBreaker) v = oth.shield > 0 ? e.fx.shieldBreaker : 0;
     if (e.fx.awaken) v = oth.utilUses * e.fx.awaken;
+    if (e.fx.joker) v = h.base >= HANDS.pair[1] ? Math.round(h.base * e.fx.joker / 100) : 0;
     if (v > 0) { bonus += v; parts.push({ src: e.id, label: e.name, t: 'b', v, pas: true }); }
   });
   return { h, base: h.base, bonus, mult, crit, parts, score: Math.round((h.base + bonus) * mult) };
@@ -103,8 +152,8 @@ Screens.battle = {
   <div class="b-l">
     <div class="b-top"><button class="b-menu" title="메뉴 (Esc)">☰</button><div class="b-round pix">ROUND <b class="num" id="bRound">1</b><small id="bLimit"></small></div></div>
     <ol class="b-steps" id="bSteps">${['드래프트', '전투 패 구성', '쇼다운 준비', '피해 정산'].map((t, i) => `<li data-p="${i + 1}"><b class="pix">0${i + 1}</b>${t}</li>`).join('')}</ol>
-    <div class="b-sec">족보 점수표</div>
-    <div class="htable" id="htable">${Object.entries(HANDS).filter(([k]) => k !== 'none').reverse().map(([k, [n, b]]) => `<div data-k="${k}"><span>${n}</span><b class="num">${b}</b></div>`).join('')}</div>
+    <div class="b-sec hg-sec">족보 점수표 <button class="hg-btn" id="hgBtn" title="족보 가이드 (H)">? 예시 보기</button></div>
+    <div class="htable" id="htable">${Object.entries(HANDS).filter(([k]) => k !== 'none').reverse().map(([k, [n, b]]) => `<div data-k="${k}" data-tip="${handTip(k).replace(/"/g, '&quot;')}"><span>${n}</span><b class="num">${b}</b></div>`).join('')}</div>
     <div class="hud me" id="hudMe"></div>
   </div>
   <div class="b-c">
@@ -125,11 +174,13 @@ Screens.battle = {
     const rules = { ...DEFAULT_RULES, ...(opts.mode === '친구' && opts.rules ? opts.rules : {}) }, hp = rules.startHP;
     const oppName = opts.opp || (opts.mode === '연습' ? `AI · ${DIFFS[App.diff].ko}` : pick(OPP_NAMES));
     S = { alive: Symbol(), rules, round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false, busy: false, skip: false, seenCut: new Set(), tLeft: 0, tInt: null,
-      me: mkSide(true, App.player.name, App.myDeck.length ? App.myDeck : DEFAULT_DECK, hp), op: mkSide(false, oppName, randomDeck(), hp) };
+      me: mkSide(true, App.player.name, App.myDeck.length ? App.myDeck : DEFAULT_DECK, hp), op: mkSide(false, oppName, (opts.mode || '연습') === '연습' ? styledDeck(App.diff) : randomDeck(), hp) };
     const start = ['♠A', '♠K', '♥7'].filter(id => S.me.pool.includes(id));
     (start.length ? start : S.me.pool.slice(0, 3)).forEach(id => { S.me.inv.push(id); S.me.pool = S.me.pool.filter(x => x !== id); });
     S.op.inv = shuffle(S.op.pool).slice(0, 3); S.op.pool = S.op.pool.filter(x => !S.op.inv.includes(x));
     $('.b-menu', el).onclick = battleMenu;
+    $('#hgBtn', el).onclick = handGuideModal;
+    $('#htable', el).addEventListener('click', handGuideModal);
     $('#handMe', el).addEventListener('click', onHandClick);
     $('#fanMe', el).addEventListener('click', e => { const c = e.target.closest('.ec'); if (c) cardDetail(c.dataset.id); });
     $('#fanOp', el).addEventListener('click', e => { const c = e.target.closest('.ec'); if (c && !c.classList.contains('back')) cardDetail(c.dataset.id, true); });
@@ -151,6 +202,7 @@ Screens.battle = {
       if (e.key === ' ' && S.phase === 4 && S.busy) { if (!S.skip) skipFx(); return true; }
       if (e.key === 'Escape') { if ($('#layer .mwrap')) { if (!$('#layer .mwrap.lock')) closeModal(); return true; } battleMenu(); return true; }
       if (e.repeat) return false;
+      if ((e.key === 'h' || e.key === 'H') && !$('#layer .mwrap')) { handGuideModal(); return true; }
       if (S.phase === 2 && !S.busy && !$('#layer .mwrap') && /^[1-7]$/.test(e.key)) { onHandClick({ target: $$('#handMe .pc')[+e.key - 1] }); return true; }
       if (e.key === 'Enter') { const b = $('#ev .btn.pri:not([disabled])'); if (b && !$('#layer .mwrap')) { b.click(); return true; } }
       return false;
@@ -351,7 +403,7 @@ async function startRound() {
 
 /* ---------- 드래프트 / 교체 ---------- */
 function openDraft() {
-  if (S.phase !== 1) return;
+  if (S.phase !== 1 || S.drafted === S.round) return;   // 라운드당 드래프트 1회 (자동 열기와 겹치지 않게)
   const offer = shuffle(S.me.pool).slice(0, 3);
   if (!offer.length) { toast('효과 덱이 비었습니다 · 드래프트 생략'); oppDraft(); deal(); return; }
   const tok = S.alive, hi = g => g === 'E' || g === 'L';
@@ -374,7 +426,7 @@ function openDraft() {
   };
   $$('.dm-c', w).forEach(c => c.onclick = () => { if (revealing) return; if (idx !== +c.dataset.i) { Sfx.play('select'); const p = FX.center(c); burst(p.x, p.y, ['#ffe08a', '#fff'], 12, 90); } idx = +c.dataset.i; upd(); });
   $('#dmOk', w).onclick = async () => {
-    if (w._done || revealing) return; w._done = true; Sfx.play('confirm');
+    if (w._done || revealing) return; w._done = true; S.drafted = S.round; Sfx.play('confirm');
     const id = offer[idx], e = EF[id]; oppDraft();
     if (hi(e.g)) {   // 영웅·전설 획득 축하 (교체가 필요하면 교체 확정 뒤에 축하)
       closeModal(true);
@@ -469,7 +521,7 @@ function aiWants(op, e) {
   if (fx.shield || fx.sturdy || fx.reduce || fx.immune) return weak || hpPct <= .4;
   if (fx.counter) return weak;
   if (fx.mult) return strong || me.hp <= 25;
-  if (fx.bonus || fx.crit || fx.chain || fx.again || fx.dot || fx.pierce) return !weak || me.hp <= 15;
+  if (fx.bonus || fx.bpct || fx.crit || fx.chain || fx.again || fx.dot || fx.pierce) return !weak || me.hp <= 15;
   if (fx.breakS) return me.shield > 0;
   if (fx.storm) return passives(me).length >= 2;
   if (fx.cleanse) return op.dots.length > 0;
@@ -509,10 +561,11 @@ function deal() {
   for (let i = 0; i < 7; i++) setTimeout(() => Sfx.play('deal'), i * 70);
 }
 function evCompose() {
-  const s = S.me, h = evalHand(s.sel.map(i => s.hand[i]));
+  const s = S.me, h = evalHand(s.sel.map(i => s.hand[i])); let hint;
   ev(`<div class="ev-k"><b class="pix">02</b> 전투 패 구성 <span class="ev-r num">선택 ${s.sel.length} / 5</span></div>
     <h2>${s.sel.length ? h.name : '공격할 5장을 고르세요'} ${s.sel.length ? `<small>기본 ${h.base}점</small>` : ''}</h2>
     <p>${S.rrMode ? `리롤 모드 · 바꿀 카드를 표시하세요 (${s.rr.length}장 표시)` : '포커 카드 7장 중 5장을 골라 족보를 만드세요. 액티브 효과 카드도 지금 사용할 수 있습니다.'}</p>
+    ${!S.rrMode && s.rerolls > 0 && (hint = drawHint(s.hand)) ? `<p class="ev-hint">💡 ${hint}</p>` : ''}
     <div class="ev-row">${S.rrMode ? evBtn('취소', 'rrx') + `<button class="btn sm" style="--c:${C.yellow}" data-a="rrgo" ${s.rr.length ? '' : 'disabled'}><b>리롤 실행 (${s.rr.length}장)</b></button>`
       : evBtn(`리롤 모드 (${s.rerolls})`, 'rr', false, !s.rerolls) + evBtn('최적 5장 자동 선택', 'auto')}
       ${evBtn(s.sel.length === 5 ? '패 확정 → 03' : '5장 선택 필요', 'ok', true, !(s.sel.length === 5 && !S.rrMode))}</div>`);
@@ -871,8 +924,9 @@ function checkDeath() {
 function battleMenu() {
   const w = settingsModal();
   const f = $('.setm-f', w);
-  f.innerHTML = btn('게임 방법', '', C.yellow, 'id="bmGuide"') + btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
+  f.innerHTML = btn('게임 방법', '', C.yellow, 'id="bmGuide"') + btn('족보 가이드', '', C.yellow, 'id="bmHand"') + btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
   $('#bmGuide', w).onclick = () => guideModal();
+  $('#bmHand', w).onclick = () => handGuideModal();
   $('#stX', w).onclick = () => closeModal();
   $('#bmSur', w).onclick = async () => {
     if (!await confirmModal('정말 항복할까요?', '이번 대전은 패배로 기록됩니다.', '항복하기')) return;

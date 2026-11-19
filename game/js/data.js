@@ -20,9 +20,9 @@ const GRADE_ORDER = { C: 0, R: 1, E: 2, L: 3 };
 
 // 코드|이름|등급|A액티브/P패시브|분류|쿨타임|설명|효과값  (N값은 데모용 임시값)
 const RAW = `
-♠A|강타|C|A|공격|1|이번 턴 최종 점수에 고정 피해 +3|bonus:3
-♠2|일격|R|A|공격|2|이번 턴 치명타 확률 +5% (중첩 가능)|crit:5
-♠3|일격|R|A|공격|2|이번 턴 치명타 확률 +5% (중첩 가능)|crit:5
+♠A|강타|C|A|공격|1|이번 턴 족보 점수의 25%만큼 피해 추가 (최소 +3)|bpct:25
+♠2|일격|R|A|공격|2|이번 턴 치명타 확률 +30% (치명타 시 점수 ×1.5 · 중첩 가능)|crit:30
+♠3|일격|R|A|공격|2|이번 턴 치명타 확률 +30% (치명타 시 점수 ×1.5 · 중첩 가능)|crit:30
 ♠4|제련|C|P|강화|0|턴 시작마다 최종 피해 +1 누적|smelt:1
 ♠5|제련|C|P|강화|0|턴 시작마다 최종 피해 +1 누적|smelt:1
 ♠6|열상|R|A|공격/방해|4|적중 시 상대에게 지속 피해 3 (2턴)|dot:3
@@ -30,8 +30,8 @@ const RAW = `
 ♠8|파괴|R|A|방해|2|상대의 실드 효과를 20% 확률로 무효화|breakS:20
 ♠9|매의 눈|E|A|방해|3|상대의 실드·감면을 즉시 무시하고 공격|pierce:1
 ♠10|찬스 스텝|L|A|공격/방해|2|적중 시 피해 결산 한 번 더 (실패 시 불발)|again:1
-♠J|강타|C|A|공격|1|이번 턴 최종 점수에 고정 피해 +3|bonus:3
-♠Q|심판|L|A|공격|2|이번 턴 최종 데미지 ×2|mult:2
+♠J|강타|C|A|공격|1|이번 턴 족보 점수의 25%만큼 피해 추가 (최소 +3)|bpct:25
+♠Q|심판|L|A|공격|3|이번 턴 최종 데미지 ×1.6|mult:1.6
 ♠K|힘|R|P|와일드|0|♠ 스페이드 드로우 가중치 소폭 증가|wS:1
 ♥A|무적|L|A|유틸/방어|5|이번 턴 받는 모든 피해를 한 번 무시|immune:1
 ♥2|집중|C|A|유틸/방어|1|급소 회피 +20% (받는 피해 20% 감면)|reduce:20
@@ -59,7 +59,7 @@ const RAW = `
 ♣J|복수|E|P|강화|0|체력이 10% 감소할 때마다 최종 피해 +1|revenge:1
 ♣Q|화신|L|P|강화|0|공격 적중/실패 시 상대에게 지속 피해 2 (2턴)|avatar:2
 ♣K|계략|R|P|강화|0|방해 카드 3장 이상 시 방해 액티브 쿨타임 -1|scheme:1
-◆A|조커|L|P|와일드|0|보유 시 매 턴 리롤 +1 (특성 제외로 임시 대체한 효과)|reroll:1
+◆A|조커|L|P|와일드|0|매 턴 리롤 +1 · 원 페어 이상이면 족보 점수의 20%만큼 피해 추가|reroll:1,joker:20
 ◆2|간파|C|P|함정|0|상대 방해 발동 시 10% 확률로 무효화|trap:1
 ◆3|흐트러짐|C|P|함정|0|상대 유틸 사용 시 30% 확률로 지속 피해 3 (1턴)|trap:1
 ◆4|방패 파괴자|R|P|함정|0|상대가 실드 보유 시 최종 피해 +3|shieldBreaker:3
@@ -98,6 +98,23 @@ function canAdd(ids, id) {
 }
 function deckSummary(ids) { if (!ids.length) return '빈 덱'; const s = deckInfo(ids).suit; const top = SUITS.slice().sort((a, b) => s[b] - s[a])[0]; return `${SUITNAME[top]} 중심`; }
 function randomDeck() { const d = []; for (const id of shuffle(EFFECTS.map(e => e.id))) { if (!canAdd(d, id)) d.push(id); if (d.length >= DECK_MAX) break; } return d; }
+// AI 난이도의 "덱 성향"대로 덱을 만든다 : 성향 점수 + 약간의 무작위로 정렬한 뒤 덱 규칙 안에서 채움
+const DECK_STYLE = {
+  easy: e => (e.suit === '♥' ? 4 : 0) + (/방어|유틸/.test(e.cat) ? 3 : 0) - (e.g === 'L' ? 3 : 0),
+  normal: e => (e.suit === '♠' ? 4 : 0) + (/공격|강화/.test(e.cat) ? 3 : 0),
+  hard: e => GRADE_ORDER[e.g] * 3 + (e.k === 'A' ? 1 : 0),
+};
+const DECK_CAP = { easy: { E: 3, L: 1 }, normal: { E: 4, L: 1 }, hard: { E: EPIC_MAX, L: LEG_MAX } };   // 난이도가 낮을수록 영웅·전설 수 제한
+function styledDeck(diff) {
+  const f = DECK_STYLE[diff]; if (!f) return randomDeck();
+  const d = [], cap = DECK_CAP[diff], n = { E: 0, L: 0 };
+  for (const { id } of EFFECTS.map(e => ({ id: e.id, s: f(e) + Math.random() * 2.5 })).sort((a, b) => b.s - a.s)) {
+    const g = EF[id].g; if (n[g] !== undefined && n[g] >= cap[g]) continue;
+    if (!canAdd(d, id)) { d.push(id); if (n[g] !== undefined) n[g]++; }
+    if (d.length >= DECK_MAX) break;
+  }
+  return d;
+}
 
 /* ---------- AI 난이도 (3단계) ---------- */
 const DIFFS = {

@@ -302,7 +302,7 @@ const GUIDE = [
     <div class="gd-grades"><span class="c">일반</span><span class="r">희귀</span><span class="e">◆ 영웅</span><span class="l">★ 전설</span></div>
     <p class="mut">덱은 52장 중 26장으로 구성하며 영웅은 최대 6장, 전설은 최대 2장입니다. 전투 중 장착 칸은 5칸(짐꾼 보유 시 +2)이고, 가득 차면 기존 카드와 교체합니다.</p>` },
   { t: '조작과 팁', h: () => `<div class="gd-keys">${[['1 ~ 7', '전투 패 선택'], ['Enter', '다음 단계 진행'], ['Space · 클릭', '피해 정산 연출 건너뛰기'], ['Esc', '메뉴 / 창 닫기']].map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('')}</div>
-    <ul class="gd-list"><li>설정에서 <b>연출 속도</b>, <b>효과음·배경음악 볼륨</b>, 화면 흔들림을 바꿀 수 있습니다</li><li>심판(최종 데미지 ×2)처럼 강한 카드는 크게 이길 라운드에 아껴 두세요</li><li>HP가 30% 이하로 떨어지면 경보가 울립니다 — 실드·회복 카드를 활용하세요</li><li>무작위·친구 대전은 아직 온라인이 아니라 AI가 상대합니다</li></ul>` },
+    <ul class="gd-list"><li>설정에서 <b>연출 속도</b>, <b>효과음·배경음악 볼륨</b>, 화면 흔들림을 바꿀 수 있습니다</li><li>심판(최종 데미지 ×1.6)처럼 강한 카드는 크게 이길 라운드에 아껴 두세요</li><li>HP가 30% 이하로 떨어지면 경보가 울립니다 — 실드·회복 카드를 활용하세요</li><li>무작위·친구 대전은 아직 온라인이 아니라 AI가 상대합니다</li></ul>` },
 ];
 function guideModal(start = 0) {
   let p = start;
