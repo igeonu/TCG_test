@@ -53,7 +53,14 @@ Screens.fame = {
   },
   bind(el) {
     const R = RES(), mv = R.me.cards.find(c => c.id === R.me.mvp) || R.me.cards[0];
-    App.after(() => { countUp($('#hfNum', el), mv ? mv.dmg : 0, 1300); }, 1000);
+    App.after(() => { Sfx.play('banner'); FX.flash('#ffe08a', .25, 400); }, 500);
+    App.after(async () => {
+      const n = $('#hfNum', el); if (!n) return;
+      await countScore(n, mv ? mv.dmg : 0, 1200);
+      const p = FX.center(n); FX.ring(p.x, p.y, '#ffe08a', 300, 600, 10); burst(p.x, p.y, ['#ffe08a', '#fff', C.blue], 30, 180); Sfx.play('coin');
+      if (R.win) FX.confetti(90);
+    }, 1100);
+    bindTilt3D(el, '.hf-card', 18);
     bindRes(el);
     App.keyH = e => { if (e.key === 'ArrowRight') { App.go('report'); return true; } return false; };
   },
@@ -95,7 +102,7 @@ Screens.report = {
         <p>MVP는 마지막(결정적) 라운드 기여가 가장 큰 카드, 없으면 누적 피해가 가장 큰 카드입니다.</p></div>`;
       $('#crd', el).classList.remove('anim'); void el.offsetWidth; $('#crd', el).classList.add('anim');
     };
-    $$('tbody tr[data-id]', el).forEach(tr => tr.onclick = () => { $$('tbody tr', el).forEach(x => x.classList.remove('on')); tr.classList.add('on'); detail(tr.dataset.side, tr.dataset.id); });
+    $$('tbody tr[data-id]', el).forEach(tr => tr.onclick = () => { Sfx.play('select'); $$('tbody tr', el).forEach(x => x.classList.remove('on')); tr.classList.add('on'); detail(tr.dataset.side, tr.dataset.id); });
     detail('me', R.me.mvp || (R.me.cards[0] && R.me.cards[0].id));
     bindRes(el);
     App.keyH = e => { if (e.key === 'ArrowLeft') { App.go('fame'); return true; } return false; };

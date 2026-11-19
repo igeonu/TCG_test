@@ -44,7 +44,13 @@ const App = {
       if (this.keyH && this.keyH(e) === true) { e.preventDefault(); return; }
       if (e.key === 'Escape') { if ($('#layer .mwrap')) { closeModal(); return; } if (Screens[this.screen] && Screens[this.screen].tab && this.screen !== 'home') this.go('home'); }
     });
-    document.addEventListener('pointerdown', e => { const b = e.target.closest('.btn,.chip,.back'); if (b && !b.disabled) juice(b); });
+    document.addEventListener('pointerdown', e => { Sfx.init(); const b = e.target.closest('.btn,.chip,.back,.row-btn,.hd-set,.b-menu'); if (b && !b.disabled) { juice(b); Sfx.play('click'); } });
+    document.addEventListener('keydown', () => Sfx.init(), { once: true });
+    document.addEventListener('mouseover', e => {
+      const b = e.target.closest('.btn:not([disabled]),.chip,.row-btn,.tabbar button,.mc:not(.empty),.ai,.vt button,.seg2 button,.hc,.oc,.dm-c,.rp-c,.fg,.hd-set');
+      if (b && !b.contains(e.relatedTarget)) Sfx.play('hover');
+    });
+    BG.init();
     this.fit();
     this.go('home', {}, true);
   },
@@ -56,6 +62,7 @@ const App = {
   go(screen, opts = {}, instant = false) {
     const S = Screens[screen]; if (!S) return;
     this.clear(); closeModal(true); hideTip();
+    $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner').forEach(x => x.remove());
     const host = $('#screens'), olds = [...host.children];
     const el = document.createElement('div');
     el.className = `screen s-${screen} ${S.full ? 'full' : ''}`;
@@ -86,7 +93,9 @@ const App = {
 function transition(old, el, A, B, from, to) {
   old.style.pointerEvents = 'none';
   if (from === 'match' || to === 'match') { old.remove(); return; }
+  Sfx.play(B.full || (A && A.full) ? 'power' : 'tab');
   if (B.full || (A && A.full)) {
+    FX.flash('#ffffff', .35, 300);
     old.animate([{ filter: 'brightness(1)', transform: 'none' }, { filter: 'brightness(3)', transform: 'scaleY(.01)' }], { duration: 220, easing: 'ease-in', fill: 'forwards' });
     el.animate([{ transform: 'scaleY(.005) scaleX(.6)', filter: 'brightness(4)' }, { transform: 'scaleY(.02) scaleX(1)', filter: 'brightness(3)', offset: .35 }, { transform: 'none', filter: 'brightness(1)' }], { duration: 440, delay: 200, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'backwards' });
     setTimeout(() => old.remove(), 230); return;
@@ -107,6 +116,7 @@ function modal(html, { cls = '', onClose, backdrop = true } = {}) {
   w._onClose = onClose;
   if (backdrop) w.querySelector('.mback').addEventListener('click', () => closeModal());
   requestAnimationFrame(() => w.classList.add('open'));
+  Sfx.play('open');
   return w;
 }
 function closeModal(instant) {
@@ -118,6 +128,7 @@ function closeModal(instant) {
   });
 }
 function toast(msg, type = '') {
+  Sfx.play(type === 'err' ? 'error' : type === 'ok' ? 'coin' : 'pop');
   const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg;
   $('#toasts').appendChild(t);
   setTimeout(() => t.classList.add('out'), 1900); setTimeout(() => t.remove(), 2300);
@@ -162,9 +173,12 @@ function settingsModal() {
     <label>효과 카드 강조 방식 <small>(마우스를 올렸을 때)</small></label>${seg('hl', [['size', '크기 변화'], ['border', '테두리 색'], ['both', '둘 다']])}
     <label>쿨타임 표시</label>${seg('cd', [['lock', '자물쇠'], ['hourglass', '모래시계'], ['tint', '색상 변환']])}
     <label>피해 정산 연출</label>${seg('forecast', [[true, '전투 예측 먼저'], [false, '바로 정산']])}
+    <label>효과음</label><div class="seg" data-fx="sfx">${[[true, '켜기'], [false, '끄기']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.sfx === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <label>화면 흔들림 · 타격감 <small>(멀미가 나면 줄이세요)</small></label><div class="seg" data-fx="shake">${[['off', '끄기'], ['normal', '보통'], ['strong', '강하게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.shake === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="setm-f">${btn('기록 초기화', '', C.gray, 'id="stReset"')}${btn('닫기', '', C.blue, 'id="stX"')}</div></div>`, { cls: 'm-set' });
   $$('.seg', w).forEach(sg => sg.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; let v = b.dataset.v; if (v === 'true') v = true; if (v === 'false') v = false;
+    if (sg.dataset.fx) { FXOPT[sg.dataset.fx] = v; saveFxOpt(); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); if (sg.dataset.fx === 'shake') FX.shake(1); Sfx.play('confirm'); return; }
     o[sg.dataset.k] = v; store.set('battleOpt', o); $$('button', sg).forEach(x => x.classList.toggle('on', x === b));
     const bt = $('#bt'); if (bt) bt.className = bt.className.replace(/hl-\w+/, 'hl-' + o.hl).replace(/cd-\w+/, 'cd-' + o.cd);
   });

@@ -37,7 +37,14 @@ function bindTilt(el) {
   });
   show.addEventListener('mouseleave', () => { ace.style.transform = ''; $('.shine', ace).style.background = ''; });
 }
-Screens.home = { tab: 'home', title: '', html: homeHTML, bind(el) { goBtns(el); bindTilt(el); } };
+Screens.home = {
+  tab: 'home', title: '', html: homeHTML,
+  bind(el) {
+    goBtns(el); bindTilt(el); bindTilt3D(el, '.minis .mc,.fpc', 20);
+    $$('.fpc', el).forEach(c => c.onclick = () => { Sfx.play('flip'); const p = FX.center(c); burst(p.x, p.y, ['#fff', C.red, C.yellow], 14, 90); c.animate([{ rotate: '0 1 0 0deg' }, { rotate: '0 1 0 360deg' }], { duration: 500, easing: 'cubic-bezier(.2,1.2,.4,1)' }); });
+    $('#ace', el).addEventListener('click', () => { Sfx.play('passive'); const p = FX.center($('#ace', el)); FX.ring(p.x, p.y, C.yellow, 420, 600, 10); burst(p.x, p.y, ['#ffe08a', '#fff'], 30, 200); });
+  },
+};
 
 /* ---------- 무작위 매칭 (홈 위 모달) ---------- */
 const TIPS = ['실드는 1턴 뒤 소멸합니다. 공격 직전에 쓰세요.', '인벤토리가 가득 차면 교체 미리보기로 바뀌는 효과를 확인할 수 있어요.', '심판은 마지막 라운드에 아껴 두면 MVP가 되기 쉽습니다.', '리롤은 매 턴 1회 · 행운·조커 카드로 늘릴 수 있어요.', '점수 차이만큼 낮은 쪽의 HP가 줄어듭니다.'];
@@ -53,7 +60,7 @@ Screens.match = {
   bind(el) {
     goBtns(el); bindTilt(el);
     let t = 0, ti = 0;
-    App.every(() => { t++; const e = $('#mmTime', el); e.textContent = fmtTime(t); bump(e); }, 1000);
+    App.every(() => { t++; const e = $('#mmTime', el); e.textContent = fmtTime(t); bump(e); Sfx.play('tick', .2); }, 1000);
     App.every(() => { ti = (ti + 1) % TIPS.length; const tp = $('#mmTip', el); tp.textContent = TIPS[ti]; bump(tp); }, 2600);
     const close = () => { $('.mm', el).classList.add('out'); setTimeout(() => App.go('home'), 220); };
     $('#mmX', el).onclick = close; $('.mm-back', el).onclick = close;
@@ -61,7 +68,9 @@ Screens.match = {
       const opp = pick(OPP_NAMES); App.clear();
       $('#mmC', el).classList.add('flip');
       $('#mmT', el).innerHTML = `<b class="hl">${opp}</b> 발견!`;
-      burst(720, 300, [C.red, C.yellow, '#fff', C.blue], 40, 240);
+      Sfx.play('match'); FX.flash('#ffe08a', .35); FX.ring(720, 330, '#ffe08a', 600, 700, 14); FX.shake(.6); BG.pulse(1.5);
+      burst(720, 300, [C.red, C.yellow, '#fff', C.blue], 60, 300);
+      [0, 1, 2, 3, 4].forEach(i => setTimeout(() => Sfx.play('flip'), i * 80));
       $('#mmF', el).innerHTML = btn('거절', '', C.gray, 'id="mmNo"') + btn('듀얼 입장', 'ENTER', C.red, 'id="mmGo"');
       $('#mmNo', el).onclick = close;
       $('#mmGo', el).onclick = () => App.after(() => App.startBattle({ mode: '무작위', opp: opp }), 150);
@@ -147,7 +156,7 @@ Screens.practice = {
   bind(el) {
     goBtns(el);
     let cur = DKEYS.indexOf(App.diff), open = false;
-    const lay = () => {
+    let lay = () => {
       $$('.ai', el).forEach((c, i) => { const o = i - cur; c.style.transform = `translateX(${o * 330}px) scale(${o ? .78 : 1}) rotateY(${o * -16}deg)`; c.style.opacity = o ? .55 : 1; c.style.zIndex = 5 - Math.abs(o); c.classList.toggle('cur', !o); });
       $$('#dots i', el).forEach((d, i) => d.classList.toggle('on', i === cur));
       const d = DIFFS[DKEYS[cur]];
@@ -156,7 +165,9 @@ Screens.practice = {
         ${btn('연습 시작', 'PLAY', C.red, 'id="pgo"', 'big')}`;
       $('#pgo', el).onclick = () => { App.diff = d.key; store.set('diff', d.key); App.after(() => App.startBattle({ mode: '연습', opp: `AI · ${d.ko}` }), 150); };
     };
-    const setOpen = v => { open = v; $('#sheet', el).classList.toggle('open', v); };
+    const setOpen = v => { if (open !== v) Sfx.play(v ? 'open' : 'whoosh'); open = v; $('#sheet', el).classList.toggle('open', v); };
+    bindTilt3D($('#car', el), '.ai.cur', 14);
+    const lay0 = lay; lay = () => { lay0(); Sfx.play('whoosh'); const c = $('.ai.cur', el); if (c) { const p = FX.center(c); setTimeout(() => burst(p.x, p.y - 100, [DIFFS[DKEYS[cur]].color, '#fff'], 16, 140), 250); } };
     $$('.ai', el).forEach((c, i) => c.onclick = () => { if (i === cur) setOpen(!open); else { cur = i; lay(); } });
     $$('#dots i', el).forEach((d, i) => d.onclick = () => { cur = i; lay(); });
     $('.grab', el).onclick = () => setOpen(!open);
@@ -201,7 +212,7 @@ Screens.cards = {
     const d = $('.dd', el); $('.dd-b', d).onclick = e => { e.stopPropagation(); d.classList.toggle('open'); };
     $$('.dd-l button', d).forEach(o => o.onclick = () => { sort = o.dataset.v; $('.dd-b span', d).textContent = o.textContent; $$('.dd-l button', d).forEach(x => x.classList.toggle('on', x === o)); d.classList.remove('open'); grid(); });
     el.addEventListener('click', e => { if (!e.target.closest('.dd')) d.classList.remove('open'); });
-    bindTips(el); grid(); detail(sel);
+    bindTips(el); grid(); detail(sel); bindTilt3D($('#grid', el), '.mc', 20); bindTilt3D($('#det', el), '.ec', 16);
   },
 };
 
@@ -229,7 +240,11 @@ Screens.deck = {
       $('#mg', el).innerHTML = sorted.map(id => miniCard(EF[id], id === nw ? 'new' : '', 'draggable="true" data-from="main"')).join('') + Array.from({ length: Math.max(0, 26 - d.length) }, () => '<div class="mc empty"></div>').join('');
       $('#ol', el).innerHTML = EFFECTS.filter(e => os === '전체' || e.suit === os).map(e => `<div class="oc ${d.includes(e.id) ? 'in' : ''} g-${e.g} ${isRed(e.suit) ? 'red' : ''}" draggable="${!d.includes(e.id)}" data-id="${e.id}" data-from="own"><b>${e.id}</b><span>${e.name}</span><small>${GRADES[e.g].ko}</small><em>${d.includes(e.id) ? '덱' : '+'}</em></div>`).join('');
     };
-    const add = id => { const er = canAdd(App.myDeck, id); if (er) { toast(er, 'err'); shake($('#lim', el)); return; } App.myDeck = [...App.myDeck, id]; render(id); showInfo(id); };
+    const add = id => {
+      const er = canAdd(App.myDeck, id); if (er) { toast(er, 'err'); shake($('#lim', el)); return; }
+      App.myDeck = [...App.myDeck, id]; render(id); showInfo(id); Sfx.play('coin');
+      const c = $(`#mg .mc[data-id="${CSS.escape(id)}"]`); if (c) { const p = FX.center(c); FX.ring(p.x, p.y, '#ffe08a', 140, 400, 6); burst(p.x, p.y, ['#ffe08a', '#fff'], 14, 80); }
+    };
     const rem = id => { App.myDeck = App.myDeck.filter(x => x !== id); render(); toast(`${EF[id].name} 제외`); };
     let drag = null;
     el.addEventListener('dragstart', e => { const c = e.target.closest('[draggable=true]'); if (!c) return; drag = { id: c.dataset.id, from: c.dataset.from }; e.dataTransfer.setData('text/plain', drag.id); c.classList.add('drag'); el.classList.add('dragging-' + drag.from); });
@@ -248,7 +263,7 @@ Screens.deck = {
     $('#rst', el).onclick = () => { App.myDeck = [...DEFAULT_DECK]; render(); showInfo(info); };
     $('#rnd', el).onclick = () => { App.myDeck = randomDeck(); render(); showInfo(App.myDeck[0]); };
     $('#clr', el).onclick = () => { App.myDeck = []; render(); };
-    render(); showInfo(info);
+    render(); showInfo(info); bindTilt3D($('#mg', el), '.mc', 20); bindTilt3D($('#di', el), '.ec', 16);
   },
 };
 
