@@ -2,7 +2,9 @@
 /* =========================================================
    FX – 효과음(WebAudio 합성) · 타격감 · 배너 · 파티클 · 배경
    ========================================================= */
-const FXOPT = Object.assign({ shake: 'normal', speed: 'normal' }, store.get('fxOpt', {}));
+// 시스템이 '동작 줄이기'로 설정돼 있으면 흔들림 끄기·섬광 줄이기를 기본값으로
+const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FXOPT = Object.assign({ shake: REDUCED ? 'off' : 'normal', speed: 'normal', flash: REDUCED ? 'low' : 'normal' }, store.get('fxOpt', {}));
 // 연출 속도 배율 : 건너뛰기 중이면 거의 0, '빠르게'면 절반
 const fxSpeed = () => (typeof S !== 'undefined' && S && S.skip) ? .08 : FXOPT.speed === 'fast' ? .5 : 1;
 const pace = ms => wait(ms * fxSpeed());
@@ -22,6 +24,7 @@ const FX = {
     d.animate([{ transform: 'scale(.2) rotate(0)', opacity: 1 }, { transform: 'scale(1.1) rotate(25deg)', opacity: .9, offset: .3 }, { transform: 'scale(.6) rotate(45deg)', opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' });
   },
   flash(color = '#fff', op = .7, dur = 260) {
+    if (FXOPT.flash === 'low') { op = Math.min(op * .25, .12); dur = dur * 1.6; }   // 섬광 줄이기 : 약하고 느리게
     const d = this.add('fx-flash', `background:${color}`, '', dur + 30);
     d.animate([{ opacity: op }, { opacity: 0 }], { duration: dur, easing: 'ease-out', fill: 'forwards' });
   },
@@ -67,6 +70,7 @@ const FX = {
     d.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.05)', opacity: 1, offset: .3 }, { transform: 'scale(1)', opacity: 1, offset: .7 }, { transform: 'scale(1.2)', opacity: 0 }], { duration: 950, easing: 'ease-out', fill: 'forwards' });
   },
   confetti(n = 160) {
+    n = Math.min(n, particleRoom());
     const cols = ['#ff5a3c', '#2a6bbd', '#e6a33c', '#7d4cc4', '#2fa36b', '#ffe08a', '#fff'];
     for (let i = 0; i < n; i++) {
       const x = Math.random() * 1440, w = 6 + rnd(9), d = this.add('fx-conf', `left:${x}px;top:-30px;width:${w}px;height:${w * (.5 + Math.random())}px;background:${pick(cols)}`, '', 4200);
@@ -156,20 +160,26 @@ const BG = {
     $('#stage').insertBefore(cv, $('#screens')); this.cv = cv; this.ctx = cv.getContext('2d');
     this.items = Array.from({ length: 26 }, () => this.spawn(true));
     this.heat = 0;
-    const loop = () => { if (!document.hidden) this.draw(); requestAnimationFrame(loop); };
+    // 배경은 30fps면 충분 · 전투 중에는 20fps로 낮춤
+    let last = 0;
+    const loop = now => {
+      const gap = App.screen === 'battle' ? 50 : 33;
+      if (!document.hidden && now - last >= gap) { const k = last ? Math.min(4, (now - last) / 16.7) : 1; last = now; this.draw(k); }
+      requestAnimationFrame(loop);
+    };
     requestAnimationFrame(loop);
   },
   spawn(any) { return { x: Math.random() * 1440, y: any ? Math.random() * 810 : 840, s: pick(SUITS), size: 18 + rnd(46), v: .15 + Math.random() * .45, r: Math.random() * 6, vr: (Math.random() - .5) * .01, a: .04 + Math.random() * .08, sway: Math.random() * 6 }; },
-  draw() {
+  draw(k = 1) {   // k : 60fps 기준 경과 프레임 수 (프레임을 낮춰도 같은 속도)
     const c = this.ctx, t = performance.now() / 1000; c.clearRect(0, 0, 1440, 810);
-    const sp = 1 + this.heat * 3;
+    const sp = (1 + this.heat * 3) * k;
     this.items.forEach((p, i) => {
       p.y -= p.v * sp; p.r += p.vr * sp; if (p.y < -60) this.items[i] = this.spawn(false);
       c.save(); c.translate(p.x + Math.sin(t + p.sway) * 14, p.y); c.rotate(p.r);
       c.globalAlpha = p.a * (1 + this.heat); c.fillStyle = isRed(p.s) ? '#ff8a6c' : '#d8f5e8';
       c.font = `900 ${p.size}px "Noto Sans KR",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(p.s, 0, 0); c.restore();
     });
-    this.heat = Math.max(0, this.heat - .01);
+    this.heat = Math.max(0, this.heat - .01 * k);
   },
   pulse(v = 1) { this.heat = Math.min(1.5, this.heat + v); },
 };

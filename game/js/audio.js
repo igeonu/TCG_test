@@ -28,6 +28,9 @@ const AU = {
         this.shaper = c.createWaveShaper(); const k = 60, n = 1024, curve = new Float32Array(n);
         for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; curve[i] = (3 + k) * x * 20 * Math.PI / 180 / (Math.PI + k * Math.abs(x)); }
         this.shaper.curve = curve; this.shaper.connect(this.sfxBus);
+        // 노이즈 버퍼는 한 번만 만들어 재사용 (매번 생성하면 큰 타격 때 GC로 끊김)
+        this.noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+        const nd = this.noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
         this.apply();
       } catch (e) { this.ctx = null; return; }
     }
@@ -54,6 +57,9 @@ document.addEventListener('visibilitychange', () => AU.sync());
 window.addEventListener('pagehide', () => { if (AU.ctx) AU.ctx.suspend(); });
 window.addEventListener('pageshow', () => AU.sync());
 
+// 공유 노이즈 버퍼를 반복 재생하는 소스 (길이에 상관없이 사용 가능)
+function noiseSrc() { const s = AU.ctx.createBufferSource(); s.buffer = AU.noiseBuf; s.loop = true; return s; }
+
 /* ---------- 효과음 ---------- */
 const Sfx = {
   lastHover: 0,
@@ -68,11 +74,10 @@ const Sfx = {
     this.env(g, t, vol, o.a || .006, dur); osc.connect(g); osc.start(t); osc.stop(t + dur + .05);
   },
   noise(dur, vol = .3, freq = 2000, delay = 0, endFreq, o = {}) {
-    const c = AU.ctx, t = c.currentTime + delay, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = this.out(o);
-    s.buffer = b; f.type = o.type || 'lowpass'; f.Q.value = o.q || .7; f.frequency.setValueAtTime(freq, t); if (endFreq) f.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
-    this.env(g, t, vol, o.a || .004, dur); s.connect(f); f.connect(g); s.start(t); s.stop(t + dur + .05);
+    const c = AU.ctx, t = c.currentTime + delay;
+    const s = noiseSrc(dur), f = c.createBiquadFilter(), g = this.out(o);
+    f.type = o.type || 'lowpass'; f.Q.value = o.q || .7; f.frequency.setValueAtTime(freq, t); if (endFreq) f.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+    this.env(g, t, vol, o.a || .004, dur); s.connect(f); f.connect(g); s.start(t, Math.random() * 1.5); s.stop(t + dur + .05);
   },
   chord(notes, dur, type = 'square', vol = .12, delay = 0, o = {}) { notes.forEach(n => this.tone(midi(n), dur, type, vol, 0, delay, o)); },
   boom(vol = 1, delay = 0) { // 묵직한 저음 충격
@@ -178,10 +183,8 @@ const Music = {
     node.connect(g); g.connect(this.out); osc.start(t); osc.stop(t + dur + .05);
   },
   nz(t, dur, vol, freq, type = 'highpass') {
-    const c = AU.ctx, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = b; f.type = type; f.frequency.value = freq;
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur); s.connect(f); f.connect(g); g.connect(this.out); s.start(t); s.stop(t + dur + .02);
+    const c = AU.ctx, s = noiseSrc(), f = c.createBiquadFilter(), g = c.createGain(); f.type = type; f.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur); s.connect(f); f.connect(g); g.connect(this.out); s.start(t, Math.random() * 1.5); s.stop(t + dur + .02);
   },
   note(T, step, t) {
     const bar = Math.floor(step / 16), s = step % 16, [root, ch] = T.bars[bar % T.bars.length], nextRoot = T.bars[(bar + 1) % T.bars.length][0];

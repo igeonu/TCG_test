@@ -50,8 +50,8 @@
 @keyframes sdLose{0%{transform:translateX(0)}20%{transform:translateX(-8px) rotate(-6deg)}40%{transform:translateX(8px) rotate(5deg)}100%{transform:translateY(10px) rotate(-8deg);opacity:.35;filter:grayscale(1)}}
 
 /* 카드 3D 기울기 + 빛 반사 */
-.my-hand,.fan,.grid,.mgrid,.minis,.det-c,.dinfo,.hf-center,.home-fan{perspective:700px}
-.pc.tilting::before,.ec.tilting::before,.mc.tilting::before,.fpc.tilting::before,.hf-card.tilting::before,.ai.tilting::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;background:radial-gradient(circle at var(--mx) var(--my),rgba(255,255,255,.75),rgba(255,255,255,0) 50%);mix-blend-mode:soft-light}
+.my-hand,.fan,.cv-grid,.mgrid,.minis,.det-c,.dinfo,.hf-center,.home-fan{perspective:700px}
+.pc.tilting::before,.ec.tilting::before,.mc.tilting::before,.fpc.tilting::before,.hf-card.tilting::before,.pr-ai.tilting::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;background:radial-gradient(circle at var(--mx) var(--my),rgba(255,255,255,.75),rgba(255,255,255,0) 50%);mix-blend-mode:soft-light}
 .pc.tilting,.ec.tilting,.mc.tilting{box-shadow:6px 8px 0 rgba(0,0,0,.35)}
 
 /* 은은한 대기 움직임 */

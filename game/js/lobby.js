@@ -96,7 +96,7 @@ Screens.friend = {
     const R = App.rules;
     const tabs = {
       make: () => `<h2>방 만들기</h2><p class="mut">규칙을 정하고 초대 코드를 공유하세요. 게임이 길어지지 않게 하려면 턴 제한을 켜세요.</p><div class="ai-note">ⓘ 온라인 대전은 준비 중입니다 · 지금은 친구 대신 AI가 입장해 대결합니다 (방 규칙은 그대로 적용)</div>
-        <div class="form">
+        <div class="fr-form">
           <div class="frow"><div><b>방 이름</b><small>친구 목록에 표시됩니다</small></div><input class="inp" value="${App.player.name}의 테이블" maxlength="16"></div>
           <div class="frow"><div><b>턴 제한</b><small>제한 턴에 도달하면 HP가 높은 쪽이 승리</small></div>${sw('lim', R.turnLimit > 0)}</div>
           <div class="frow sub ${R.turnLimit ? '' : 'dis'}"><div><b>제한 턴 수</b><small>턴 제한이 켜져 있을 때만 적용</small></div>${dd('turnLimit', [[10, '10턴'], [15, '15턴'], [20, '20턴']], R.turnLimit || 10)}</div>
@@ -104,9 +104,9 @@ Screens.friend = {
           <div class="frow"><div><b>시작 HP</b><small>양쪽 모두 같은 HP로 시작</small></div>${dd('startHP', [[60, 'HP 60'], [100, 'HP 100'], [150, 'HP 150']], R.startHP)}</div>
         </div><div class="fa">${btn('방 만들기', 'CREATE', C.red, 'id="mk"', 'wide')}</div>`,
       code: () => `<h2>코드로 입장</h2><p class="mut">친구에게 받은 초대 코드의 RD- 뒤 4자리를 입력하세요.</p>
-        <div class="code"><span>RD-</span>${[0, 1, 2, 3].map(i => `<input maxlength="1" data-i="${i}">`).join('')}</div><div class="fa">${btn('입장', 'JOIN', C.blue, 'id="join" disabled', 'wide')}</div>`,
+        <div class="fr-code"><span>RD-</span>${[0, 1, 2, 3].map(i => `<input maxlength="1" data-i="${i}">`).join('')}</div><div class="fa">${btn('입장', 'JOIN', C.blue, 'id="join" disabled', 'wide')}</div>`,
       list: () => `<h2>친구 목록 <small>${FR.filter(f => f[1] !== 'off').length}명 접속 중</small></h2>
-        <div class="fl">${FR.map(([n, s, d], i) => `<div class="fi ${s}"><span class="av2">${n[0]}<i></i></span><div><b>${n}</b><small>${d}</small></div>${btn(s === 'on' ? '초대' : s === 'game' ? '대전 중' : '오프라인', '', s === 'on' ? C.yellow : C.gray, `data-i="${i}" ${s === 'on' ? '' : 'disabled'}`, 'sm')}</div>`).join('')}</div>`,
+        <div class="fr-list">${FR.map(([n, s, d], i) => `<div class="fr-item ${s}"><span class="av2">${n[0]}<i></i></span><div><b>${n}</b><small>${d}</small></div>${btn(s === 'on' ? '초대' : s === 'game' ? '대전 중' : '오프라인', '', s === 'on' ? C.yellow : C.gray, `data-i="${i}" ${s === 'on' ? '' : 'disabled'}`, 'sm')}</div>`).join('')}</div>`,
     };
     const render = t => {
       const fp = $('#fp', el); fp.innerHTML = tabs[t]();
@@ -119,8 +119,8 @@ Screens.friend = {
       fp.onclick = e => { if (!e.target.closest('.dd')) $$('.dd', fp).forEach(x => x.classList.remove('open')); };
       const mk = $('#mk', fp); if (mk) mk.onclick = () => {
         const code = roomCode();
-        fp.innerHTML = `<h2>대기실</h2><div class="room"><div class="rc"><small>초대 코드</small><b class="num">${code}</b>${btn(ui('copy', 16) + ' 복사', '', C.yellow, 'id="cp"', 'sm')}</div>
-          <div class="seats"><div class="seat me"><span class="av2">${App.player.name[0]}</span><b>${App.player.name}</b><small>방장 · 준비 완료</small></div><div class="vs">VS</div><div class="seat" id="seat"><span class="av2 empty">?</span><b>대기 중<span class="blink">_</span></b><small>친구를 초대하세요</small></div></div>
+        fp.innerHTML = `<h2>대기실</h2><div class="fr-room"><div class="rc"><small>초대 코드</small><b class="num">${code}</b>${btn(ui('copy', 16) + ' 복사', '', C.yellow, 'id="cp"', 'sm')}</div>
+          <div class="seats"><div class="fr-seat me"><span class="av2">${App.player.name[0]}</span><b>${App.player.name}</b><small>방장 · 준비 완료</small></div><div class="fr-vs">VS</div><div class="fr-seat" id="seat"><span class="av2 empty">?</span><b>대기 중<span class="blink">_</span></b><small>친구를 초대하세요</small></div></div>
           <div class="rules-s">${R.turnLimit ? R.turnLimit + '턴 제한' : '턴 제한 없음'} · 턴당 ${R.turnTime ? R.turnTime + '초' : '무제한'} · HP ${R.startHP}</div></div>
           <div class="fa">${btn('방 나가기', '', C.gray, 'id="leave"')}${btn('듀얼 시작', 'START', C.red, 'id="start" disabled', 'wide')}</div>`;
         $('#cp', fp).onclick = () => { navigator.clipboard && navigator.clipboard.writeText(code).catch(() => { }); toast('초대 코드를 복사했습니다', 'ok'); };
@@ -132,14 +132,14 @@ Screens.friend = {
           toast(`${fr} 님이 입장했습니다`, 'ok');
         }, 3000);
       };
-      const ins = $$('.code input', fp);
+      const ins = $$('.fr-code input', fp);
       ins.forEach((inp, i) => {
         inp.oninput = () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (inp.value && ins[i + 1]) ins[i + 1].focus(); $('#join', fp).disabled = ins.some(x => !x.value); inp.classList.toggle('fill', !!inp.value); };
         inp.onkeydown = e => { if (e.key === 'Backspace' && !inp.value && ins[i - 1]) ins[i - 1].focus(); };
       });
       if (ins[0]) setTimeout(() => ins[0].focus(), 50);
       const jn = $('#join', fp); if (jn) jn.onclick = () => { toast('RD-' + ins.map(x => x.value).join('') + ' 방에 입장합니다', 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: '친구', rules: { ...App.rules } }), 700); };
-      $$('.fi .btn[data-i]', fp).forEach(b => b.onclick = () => {
+      $$('.fr-item .btn[data-i]', fp).forEach(b => b.onclick = () => {
         b.querySelector('b').textContent = '초대 보냄'; b.disabled = true; const n = FR[+b.dataset.i][0];
         App.after(() => { toast(`${n} 님이 초대를 수락했습니다`, 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: n, rules: { ...App.rules } }), 800); }, 1800);
       });
@@ -154,14 +154,14 @@ const DKEYS = ['easy', 'normal', 'hard'];
 Screens.practice = {
   tab: 'friend', title: 'AI 연습',
   html: () => `<div class="pr"><div class="pr-h">${btn('◀ 뒤로', '', C.gray, 'data-go="friend"', 'sm back')}<h2>상대할 AI 난이도를 고르세요</h2><span class="mut">← → 로 이동 · Enter 로 상세</span></div>
-    <div class="car" id="car">${DKEYS.map((k, i) => { const d = DIFFS[k]; return `<div class="ai" data-i="${i}" style="--c:${d.color}"><div class="ai-art"><span>${d.icon}</span></div><div class="ai-lv">${d.ko}</div><h3>${d.who}</h3><div class="stars">${'★'.repeat(d.stars)}${'☆'.repeat(3 - d.stars)}</div></div>`; }).join('')}</div>
-    <div class="dots" id="dots">${DKEYS.map((_, i) => `<i data-i="${i}"></i>`).join('')}</div></div>
-    <div class="sheet" id="sheet"><div class="grab"></div><div class="sheet-c" id="shc"></div></div>`,
+    <div class="pr-car" id="car">${DKEYS.map((k, i) => { const d = DIFFS[k]; return `<div class="pr-ai" data-i="${i}" style="--c:${d.color}"><div class="ai-art"><span>${d.icon}</span></div><div class="ai-lv">${d.ko}</div><h3>${d.who}</h3><div class="stars">${'★'.repeat(d.stars)}${'☆'.repeat(3 - d.stars)}</div></div>`; }).join('')}</div>
+    <div class="pr-dots" id="dots">${DKEYS.map((_, i) => `<i data-i="${i}"></i>`).join('')}</div></div>
+    <div class="pr-sheet" id="sheet"><div class="pr-grab"></div><div class="sheet-c" id="shc"></div></div>`,
   bind(el) {
     goBtns(el);
     let cur = DKEYS.indexOf(App.diff), open = false;
     let lay = () => {
-      $$('.ai', el).forEach((c, i) => { const o = i - cur; c.style.transform = `translateX(${o * 330}px) scale(${o ? .78 : 1}) rotateY(${o * -16}deg)`; c.style.opacity = o ? .55 : 1; c.style.zIndex = 5 - Math.abs(o); c.classList.toggle('cur', !o); });
+      $$('.pr-ai', el).forEach((c, i) => { const o = i - cur; c.style.transform = `translateX(${o * 330}px) scale(${o ? .78 : 1}) rotateY(${o * -16}deg)`; c.style.opacity = o ? .55 : 1; c.style.zIndex = 5 - Math.abs(o); c.classList.toggle('cur', !o); });
       $$('#dots i', el).forEach((d, i) => d.classList.toggle('on', i === cur));
       const d = DIFFS[DKEYS[cur]];
       $('#shc', el).innerHTML = `<div class="sh-l"><small style="color:${d.color}">난이도 · ${d.ko}</small><h3>${d.who}</h3><p>${d.desc}</p></div>
@@ -170,11 +170,11 @@ Screens.practice = {
       $('#pgo', el).onclick = () => { App.diff = d.key; store.set('diff', d.key); App.after(() => App.startBattle({ mode: '연습', opp: `AI · ${d.ko}` }), 150); };
     };
     const setOpen = v => { if (open !== v) Sfx.play(v ? 'open' : 'whoosh'); open = v; $('#sheet', el).classList.toggle('open', v); };
-    bindTilt3D($('#car', el), '.ai.cur', 14);
-    const lay0 = lay; lay = () => { lay0(); Sfx.play('whoosh'); const c = $('.ai.cur', el); if (c) { const p = FX.center(c); setTimeout(() => burst(p.x, p.y - 100, [DIFFS[DKEYS[cur]].color, '#fff'], 16, 140), 250); } };
-    $$('.ai', el).forEach((c, i) => c.onclick = () => { if (i === cur) setOpen(!open); else { cur = i; lay(); } });
+    bindTilt3D($('#car', el), '.pr-ai.cur', 14);
+    const lay0 = lay; lay = () => { lay0(); Sfx.play('whoosh'); const c = $('.pr-ai.cur', el); if (c) { const p = FX.center(c); setTimeout(() => burst(p.x, p.y - 100, [DIFFS[DKEYS[cur]].color, '#fff'], 16, 140), 250); } };
+    $$('.pr-ai', el).forEach((c, i) => c.onclick = () => { if (i === cur) setOpen(!open); else { cur = i; lay(); } });
     $$('#dots i', el).forEach((d, i) => d.onclick = () => { cur = i; lay(); });
-    $('.grab', el).onclick = () => setOpen(!open);
+    $('.pr-grab', el).onclick = () => setOpen(!open);
     App.keyH = e => {
       if (e.key === 'ArrowLeft') { cur = Math.max(0, cur - 1); lay(); return true; }
       if (e.key === 'ArrowRight') { cur = Math.min(2, cur + 1); lay(); return true; }
@@ -188,17 +188,17 @@ Screens.practice = {
 /* ---------- 카드 살펴보기 ---------- */
 Screens.cards = {
   tab: 'cards', title: '카드',
-  html: () => `<div class="cv"><aside class="det" id="det"></aside>
-    <section class="cg"><div class="tool"><label class="search">${ui('search', 16)}<input id="q" placeholder="카드 이름·효과 검색"></label>
+  html: () => `<div class="cv"><aside class="cv-det" id="det"></aside>
+    <section class="cg"><div class="cv-tool"><label class="cv-search">${ui('search', 16)}<input id="q" placeholder="카드 이름·효과 검색"></label>
       ${dd('sort', [['suit', '문양순'], ['grade', '등급순'], ['name', '이름순']], 'suit')}
-      <div class="chips" id="flt">${[['all', '전체', C.gray], ['A', '액티브', C.red], ['P', '패시브', C.blue], ['E', '영웅+', C.purple], ['deck', '내 덱', C.yellow]].map(([f, t, c], i) => `<button class="chip ${!i ? 'on' : ''}" data-f="${f}" style="--c:${c}">${t}</button>`).join('')}</div><span class="cnt num" id="cnt"></span></div>
-    <div class="grid" id="grid"></div></section></div>`,
+      <div class="chips" id="flt">${[['all', '전체', C.gray], ['A', '액티브', C.red], ['P', '패시브', C.blue], ['E', '영웅+', C.purple], ['deck', '내 덱', C.yellow]].map(([f, t, c], i) => `<button class="chip ${!i ? 'on' : ''}" data-f="${f}" style="--c:${c}">${t}</button>`).join('')}</div><span class="cv-cnt num" id="cnt"></span></div>
+    <div class="cv-grid" id="grid"></div></section></div>`,
   bind(el) {
     let q = '', sort = 'suit', f = 'all', sel = '♠Q';
     const detail = id => {
       const e = EF[id], inD = App.myDeck.includes(id);
       $('#det', el).innerHTML = `<div class="det-c">${cardHTML(e)}</div><small class="lbl">${GRADES[e.g].ko} · ${e.k === 'A' ? '액티브' : '패시브'} · ${e.cat}</small><h2>${e.name} <span>${e.suit}${e.rank}</span></h2><p>${e.desc}</p>
-        <div class="kv"><div><small>쿨타임</small><b class="num">${e.k === 'A' ? e.cd + '턴' : '-'}</b></div><div><small>문양</small><b>${e.suit}</b></div><div><small>숫자</small><b class="num">${e.rank}</b></div></div>
+        <div class="cv-kv"><div><small>쿨타임</small><b class="num">${e.k === 'A' ? e.cd + '턴' : '-'}</b></div><div><small>문양</small><b>${e.suit}</b></div><div><small>숫자</small><b class="num">${e.rank}</b></div></div>
         ${btn(inD ? '덱에서 빼기' : '덱에 넣기', `${App.myDeck.length}/26`, inD ? C.gray : C.green, 'id="tg"', 'wide')}`;
       $('.det-c', el).animate([{ transform: 'rotateY(90deg)' }, { transform: 'none' }], { duration: 300, easing: 'ease-out' });
       $('#tg', el).onclick = () => { if (inD) App.myDeck = App.myDeck.filter(x => x !== id); else { const er = canAdd(App.myDeck, id); if (er) { toast(er, 'err'); return; } App.myDeck = [...App.myDeck, id]; } toast(inD ? '덱에서 뺐습니다' : '덱에 넣었습니다', inD ? '' : 'ok'); detail(id); grid(); };
@@ -233,7 +233,7 @@ Screens.deck = {
     const showInfo = id => {
       info = id; const e = EF[id], inf = deckInfo(App.myDeck);
       $('#di', el).innerHTML = `<small class="lbl">카드 정보</small>${cardHTML(e)}<h3>${e.name}</h3><p>${e.desc}</p>
-        <div class="tags"><span>${GRADES[e.g].ko}</span><span>${e.k === 'A' ? '액티브' : '패시브'}</span><span>${e.cat}</span></div>
+        <div class="dk-tags"><span>${GRADES[e.g].ko}</span><span>${e.k === 'A' ? '액티브' : '패시브'}</span><span>${e.cat}</span></div>
         <div class="dstat"><div><small>액티브</small><b class="num">${inf.A}</b></div><div><small>패시브</small><b class="num">${inf.P}</b></div>${SUITS.map(s => `<div><small>${s}</small><b class="num">${inf.suit[s]}</b></div>`).join('')}</div>`;
     };
     const render = nw => {
@@ -274,7 +274,7 @@ Screens.deck = {
 /* ---------- 대전 기록 ---------- */
 Screens.history = {
   tab: 'history', title: '기록',
-  html: () => `<div class="hi"><div class="seg2" id="seg">${['전체', '무작위', '친구', '연습'].map((s, i) => `<button class="${!i ? 'on' : ''}" data-m="${s}">${s}</button>`).join('')}<i class="pill"></i></div>
+  html: () => `<div class="hi"><div class="seg2" id="seg">${['전체', '무작위', '친구', '연습'].map((s, i) => `<button class="${!i ? 'on' : ''}" data-m="${s}">${s}</button>`).join('')}<i class="hi-pill"></i></div>
     <div class="hsum" id="hs"></div><div class="hlist" id="hl"></div></div>`,
   bind(el) {
     const render = m => {
@@ -282,7 +282,7 @@ Screens.history = {
       $('#hs', el).innerHTML = [['경기', s.n, C.gray], ['승률', s.rate + '%', C.blue], ['최고 연승', s.best, C.red], ['최다 MVP', s.topMvp, C.purple]].map(([l, v, c]) => `<div style="--c:${c}"><small>${l}</small><b class="num">${v}</b></div>`).join('');
       $('#hl', el).innerHTML = L.length ? L.map((h, i) => `<div class="hc ${h.win ? 'w' : 'l'}" style="--i:${i}"><b class="pix">${h.win ? 'WIN' : 'LOSE'}</b><div class="hv"><small>${h.mode} · ${h.date}</small><b>vs ${h.opp}</b></div><div class="hx"><span>${h.rounds}R</span><span>MVP <b>${h.mvp}</b></span><span>피해 ${h.dmg}</span></div></div>`).join('') : '<div class="empty-msg">해당 모드의 기록이 없습니다</div>';
     };
-    $$('#seg button', el).forEach((b, i) => b.onclick = () => { $$('#seg button', el).forEach(x => x.classList.toggle('on', x === b)); $('.pill', el).style.transform = `translateX(${i * 100}%)`; render(b.dataset.m); });
+    $$('#seg button', el).forEach((b, i) => b.onclick = () => { $$('#seg button', el).forEach(x => x.classList.toggle('on', x === b)); $('.hi-pill', el).style.transform = `translateX(${i * 100}%)`; render(b.dataset.m); });
     $('#hl', el).addEventListener('click', e => { const c = e.target.closest('.hc'); if (c) c.classList.toggle('open'); });
     render('전체');
   },

@@ -101,11 +101,11 @@ function randomDeck() { const d = []; for (const id of shuffle(EFFECTS.map(e => 
 
 /* ---------- AI 난이도 (3단계) ---------- */
 const DIFFS = {
-  easy: { key: 'easy', ko: '쉬움', who: '견습 딜러', icon: '♣', color: '#2fa36b', stars: 1, randomPick: .5, useRate: .35, smartDraft: false,
+  easy: { key: 'easy', ko: '쉬움', who: '견습 딜러', icon: '♣', color: '#2fa36b', stars: 1, randomPick: .5, useRate: .35, smartDraft: false, smart: 0, reroll: false,
     desc: '패를 무작위로 고르기도 하는 신입 딜러. 규칙을 익히기에 좋습니다.', style: '하트 방어형' },
-  normal: { key: 'normal', ko: '보통', who: '숙련 딜러', icon: '♠', color: '#e6a33c', stars: 2, randomPick: 0, useRate: .6, smartDraft: false,
+  normal: { key: 'normal', ko: '보통', who: '숙련 딜러', icon: '♠', color: '#e6a33c', stars: 2, randomPick: 0, useRate: .6, smartDraft: false, smart: .8, reroll: true,
     desc: '항상 최적 족보를 만들고 방패와 강타를 적절히 섞어 씁니다.', style: '스페이드 공격형' },
-  hard: { key: 'hard', ko: '어려움', who: '카지노 마스터', icon: '◆', color: '#ff5a3c', stars: 3, randomPick: 0, useRate: .85, smartDraft: true,
+  hard: { key: 'hard', ko: '어려움', who: '카지노 마스터', icon: '◆', color: '#ff5a3c', stars: 3, randomPick: 0, useRate: .85, smartDraft: true, smart: 1, reroll: true,
     desc: '높은 등급 카드를 우선 드래프트하고 액티브를 공격적으로 사용합니다.', style: '전설 2장 풀덱' },
 };
 

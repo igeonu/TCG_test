@@ -48,10 +48,10 @@ const App = {
     document.addEventListener('pointerdown', e => { Sfx.init(); const b = e.target.closest('.btn,.chip,.back,.row-btn,.hd-set,.b-menu'); if (b && !b.disabled) { juice(b); Sfx.play('click'); } });
     document.addEventListener('keydown', () => Sfx.init(), { once: true });
     document.addEventListener('mouseover', e => {
-      const b = e.target.closest('.btn:not([disabled]),.chip,.row-btn,.tabbar button,.mc:not(.empty),.ai,.vt button,.seg2 button,.hc,.oc,.dm-c,.rp-c,.fg,.hd-set');
+      const b = e.target.closest('.btn:not([disabled]),.chip,.row-btn,.tabbar button,.mc:not(.empty),.pr-ai,.vt button,.seg2 button,.hc,.oc,.dm-c,.rp-c,.fg,.hd-set');
       if (b && !b.contains(e.relatedTarget)) Sfx.play('hover');
     });
-    BG.init();
+    BG.init(); applyLowFx();
     setTimeout(() => { if (!AU.ctx && !AOPT.mute) toast('🔊 화면을 한 번 클릭하면 배경음악과 효과음이 켜집니다'); }, 900);
     this.fit();
     this.go('home', {}, true);
@@ -67,7 +67,8 @@ const App = {
     $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner').forEach(x => x.remove());
     const host = $('#screens'), olds = [...host.children];
     // 사라지는 화면의 id를 지워, 새 화면과 id가 겹쳐 엉뚱한 곳에 그려지는 일을 막음
-    olds.forEach(o => $$('[id]', o).forEach(x => x.removeAttribute('id')));
+    // 사라지는 화면은 입력을 받지 않게(inert) — 전환 중 키보드·클릭이 옛 화면으로 가지 않도록
+    olds.forEach(o => { o.inert = true; $$('[id]', o).forEach(x => x.removeAttribute('id')); });
     const el = document.createElement('div');
     el.className = `screen s-${screen} ${S.full ? 'full' : ''}`;
     el.innerHTML = S.html(opts);
@@ -138,7 +139,11 @@ function toast(msg, type = '') {
   $('#toasts').appendChild(t);
   setTimeout(() => t.classList.add('out'), 1900); setTimeout(() => t.remove(), 2300);
 }
+// 화면에 동시에 떠 있는 파티클 수 상한 (저사양 기기에서 끊김 방지)
+const PARTICLE_CAP = 320;
+const particleRoom = () => Math.max(0, PARTICLE_CAP - $('#layer').querySelectorAll('.ptc,.fx-conf').length);
 function burst(x, y, colors = ['#fff'], n = 16, spread = 110) {
+  n = Math.min(n, particleRoom());
   for (let i = 0; i < n; i++) {
     const p = document.createElement('i'); p.className = 'ptc';
     const a = Math.random() * Math.PI * 2, d = spread * (.4 + Math.random() * .8);
@@ -189,10 +194,11 @@ function settingsModal() {
     <div class="vol"><span>배경음악</span><input type="range" min="0" max="100" value="${Math.round(AOPT.music * 100)}" data-a="music"><b class="num">${Math.round(AOPT.music * 100)}</b></div>
     <div class="seg" data-mute="1">${[[false, '소리 켜기'], [true, '전체 음소거']].map(([v, t]) => `<button data-v="${v}" class="${AOPT.mute === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>화면 흔들림 · 타격감 <small>(멀미가 나면 줄이세요)</small></label><div class="seg" data-fx="shake">${[['off', '끄기'], ['normal', '보통'], ['strong', '강하게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.shake === v ? 'on' : ''}">${t}</button>`).join('')}</div>
-    <div class="setm-f">${btn('기록 초기화', '', C.gray, 'id="stReset"')}${btn('닫기', '', C.blue, 'id="stX"')}</div></div>`, { cls: 'm-set' });
+    <label>섬광 · 깜빡임 <small>(빛에 민감하다면 줄이세요)</small></label><div class="seg" data-fx="flash">${[['normal', '보통'], ['low', '줄이기']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.flash === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <div class="setm-f">${btn('기록 초기화', '', C.gray, 'id="stReset"')}${btn('덱 초기화', '', C.gray, 'id="stDeck"')}${btn('닫기', '', C.blue, 'id="stX"')}</div></div>`, { cls: 'm-set' });
   $$('.seg', w).forEach(sg => sg.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; let v = b.dataset.v; if (v === 'true') v = true; if (v === 'false') v = false;
-    if (sg.dataset.fx) { FXOPT[sg.dataset.fx] = v; saveFxOpt(); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); if (sg.dataset.fx === 'shake') FX.shake(1); Sfx.play('confirm'); return; }
+    if (sg.dataset.fx) { FXOPT[sg.dataset.fx] = v; saveFxOpt(); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); if (sg.dataset.fx === 'shake') FX.shake(1); if (sg.dataset.fx === 'flash') applyLowFx(); Sfx.play('confirm'); return; }
     if (sg.dataset.mute) { setMute(v); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); Sfx.play('confirm'); return; }
     o[sg.dataset.k] = v; store.set('battleOpt', o); $$('button', sg).forEach(x => x.classList.toggle('on', x === b));
     const bt = $('#bt'); if (bt) bt.className = bt.className.replace(/hl-\w+/, 'hl-' + o.hl).replace(/cd-\w+/, 'cd-' + o.cd);
@@ -202,6 +208,25 @@ function settingsModal() {
     r.onchange = () => { if (r.dataset.a === 'sfx') Sfx.play('coin'); };
   });
   $('#stX', w).onclick = () => closeModal();
-  $('#stReset', w).onclick = () => { App.history = [...SAMPLE_HISTORY]; App.myDeck = [...DEFAULT_DECK]; toast('기록과 덱을 처음 상태로 되돌렸습니다'); closeModal(); if (Screens[App.screen].tab) App.go(App.screen); };
+  const refresh = () => { if (Screens[App.screen] && Screens[App.screen].tab) App.go(App.screen); };
+  $('#stReset', w).onclick = async () => {
+    if (!await confirmModal('대전 기록 초기화', '지금까지의 대전 기록이 모두 지워지고 예시 기록으로 바뀝니다. 되돌릴 수 없습니다.', '기록 지우기')) return;
+    App.history = [...SAMPLE_HISTORY]; toast('대전 기록을 초기화했습니다'); refresh();
+  };
+  $('#stDeck', w).onclick = async () => {
+    if (!await confirmModal('덱 초기화', '직접 구성한 덱이 기본 덱(26장)으로 바뀝니다. 되돌릴 수 없습니다.', '덱 되돌리기')) return;
+    App.myDeck = [...DEFAULT_DECK]; toast('덱을 기본 덱으로 되돌렸습니다'); refresh();
+  };
   return w;
 }
+/* 확인 창 : true(확인) / false(취소) */
+function confirmModal(title, msg, okLabel = '확인', danger = true) {
+  return new Promise(res => {
+    let done = false; const finish = v => { if (done) return; done = true; res(v); };
+    const w = modal(`<div class="cfm"><h3>${title}</h3><p>${msg}</p><div class="cfm-f">${btn('취소', '', C.gray, 'id="cfNo"')}${btn(okLabel, '', danger ? C.red : C.blue, 'id="cfOk"', 'pri')}</div></div>`, { cls: 'm-cfm', onClose: () => finish(false) });
+    $('#cfNo', w).onclick = () => { finish(false); closeModal(); };
+    $('#cfOk', w).onclick = () => { finish(true); closeModal(); };
+  });
+}
+/* 섬광 줄이기 : 설정값 또는 시스템의 '동작 줄이기'를 따름 */
+function applyLowFx() { $('#stage').classList.toggle('lowfx', FXOPT.flash === 'low'); }

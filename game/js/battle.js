@@ -212,12 +212,12 @@ function renderHUD(side) {
     S.dangerOn = danger; $('#bt').classList.toggle('danger', danger); Music.setIntense(danger);
   }
   const st = [];
-  if (side.shield > 0) st.push(`<span class="st sh">실드 ${side.shield}</span>`);
-  side.dots.forEach(d => st.push(`<span class="st dot">지속 피해 ${d.dmg} · ${d.turns}턴</span>`));
-  if (side.storm > 0) st.push(`<span class="st storm">패시브 봉인 ${side.storm}턴</span>`);
-  if (side.immune) st.push(`<span class="st imm">무적</span>`);
-  if (side.counter) st.push(`<span class="st cnt">반격 +${side.counter}</span>`);
-  $('.hud-st', el).innerHTML = st.join('') || '<span class="st none">상태 이상 없음</span>';
+  if (side.shield > 0) st.push(`<span class="hud-chip sh">실드 ${side.shield}</span>`);
+  side.dots.forEach(d => st.push(`<span class="hud-chip dot">지속 피해 ${d.dmg} · ${d.turns}턴</span>`));
+  if (side.storm > 0) st.push(`<span class="hud-chip storm">패시브 봉인 ${side.storm}턴</span>`);
+  if (side.immune) st.push(`<span class="hud-chip imm">무적</span>`);
+  if (side.counter) st.push(`<span class="hud-chip counter">반격 +${side.counter}</span>`);
+  $('.hud-st', el).innerHTML = st.join('') || '<span class="hud-chip none">상태 이상 없음</span>';
 }
 function cardState(side, id) {
   const e = EF[id];
@@ -376,9 +376,10 @@ function openDraft() {
   $('#dmOk', w).onclick = async () => {
     if (w._done || revealing) return; w._done = true; Sfx.play('confirm');
     const id = offer[idx], e = EF[id]; oppDraft();
-    if (hi(e.g)) {   // 영웅·전설 획득 축하
-      closeModal(true); await FX.rarityGet(e); if (!live(tok)) return;
-      if (S.me.inv.length >= slotsOf(S.me)) { openReplace(id); return; }
+    if (hi(e.g)) {   // 영웅·전설 획득 축하 (교체가 필요하면 교체 확정 뒤에 축하)
+      closeModal(true);
+      if (S.me.inv.length >= slotsOf(S.me)) { openReplace(id, true); return; }
+      await FX.rarityGet(e); if (!live(tok)) return;
       equip(id, null); return;
     }
     if (S.me.inv.length >= slotsOf(S.me)) { closeModal(true); openReplace(id); return; }
@@ -415,7 +416,7 @@ async function equip(id, srcEl) {
   addLog(`<b>획득</b> · ${EF[id].suit}${EF[id].rank} ${EF[id].name}`);
   await pace(600); deal();
 }
-function openReplace(newId) {
+function openReplace(newId, celebrate = false) {
   const ne = EF[newId]; let pi = -1;
   const w = modal(`<div class="rep">
     <div class="rp-h"><span class="tagb pix">FULL ${S.me.inv.length}/${slotsOf(S.me)}</span><b>빈 슬롯이 없습니다. ${ne.suit}${ne.rank} ${ne.name}을(를) 받으려면 기존 카드 1장을 버리세요.</b></div>
@@ -438,10 +439,45 @@ function openReplace(newId) {
     $('#rpOk', w).disabled = true; $('#rpNo', w).disabled = true;
     const old = S.me.inv[pi]; $$('.rp-c .ec', w)[pi].classList.add('discard'); await pace(380);
     S.me.inv[pi] = newId; delete S.me.cd[old]; S.me.pool = S.me.pool.filter(x => x !== newId);
-    closeModal(); addLog(`<b>교체</b> · ${EF[old].name} → ${ne.name}`); renderFan(S.me);
+    closeModal(); addLog(`<b>교체</b> · ${EF[old].name} → ${ne.name}`);
+    if (celebrate) { const tok = S.alive; await FX.rarityGet(ne); if (!live(tok)) return; }
+    renderFan(S.me);
     const c = $(`#fanMe .ec[data-id="${CSS.escape(newId)}"]`); c && c.classList.add('new');
     await pace(400); deal();
   };
+}
+/* ---------- 상대 AI ---------- */
+// 리롤 : 족보가 약하면 페어(또는 같은 문양 4장)를 남기고 나머지를 교체
+function aiReroll(op) {
+  let n = 1 + (passives(op).some(e => e.fx.luck) && Math.random() < .5 ? 1 : 0) + passives(op).reduce((a, e) => a + (e.fx.reroll || 0), 0);
+  while (n-- > 0) {
+    const h = evalHand(best5(op.hand).map(i => op.hand[i])); if (h.base >= 15) return;
+    const cnt = {}; op.hand.forEach(c => cnt[c.r] = (cnt[c.r] || 0) + 1);
+    const suitCnt = {}; op.hand.forEach(c => suitCnt[c.s] = (suitCnt[c.s] || 0) + 1);
+    const flushSuit = Object.keys(suitCnt).find(s => suitCnt[s] >= 4);
+    let keep = op.hand.map((c, i) => i).filter(i => flushSuit ? op.hand[i].s === flushSuit : cnt[op.hand[i].r] >= 2);
+    if (!keep.length) keep = op.hand.map((c, i) => i).sort((a, b) => pv(op.hand[b].r) - pv(op.hand[a].r)).slice(0, 2);
+    const swap = op.hand.map((c, i) => i).filter(i => !keep.includes(i)).slice(0, 4); if (!swap.length) return;
+    const nw = drawCards(op, swap.length, op.hand); swap.forEach((i, k) => op.hand[i] = nw[k]);
+  }
+}
+// 액티브 사용 판단 : 자기 패 세기·HP·상대 상태를 보고 결정 (내 패는 보지 않음)
+function aiWants(op, e) {
+  const me = S.me, base = evalHand(op.sel.map(i => op.hand[i])).base, fx = e.fx, hpPct = op.hp / op.maxHp;
+  const strong = base >= 20, weak = base <= 10;
+  if (fx.heal && !fx.shield) return op.maxHp - op.hp >= fx.heal;
+  if (fx.shield || fx.sturdy || fx.reduce || fx.immune) return weak || hpPct <= .4;
+  if (fx.counter) return weak;
+  if (fx.mult) return strong || me.hp <= 25;
+  if (fx.bonus || fx.crit || fx.chain || fx.again || fx.dot || fx.pierce) return !weak || me.hp <= 15;
+  if (fx.breakS) return me.shield > 0;
+  if (fx.storm) return passives(me).length >= 2;
+  if (fx.cleanse) return op.dots.length > 0;
+  if (fx.refit) return Object.values(op.cd).some(v => v > 1);
+  if (fx.confuse) return !strong;
+  if (fx.mirror) return !!op.lastUsed;
+  if (fx.fate) return false;   // 운명은 아직 AI가 활용하지 못함
+  return Math.random() < .5;
 }
 function oppDraft() {
   const s = S.op, offer = shuffle(s.pool).slice(0, 3); if (!offer.length) return;
@@ -467,6 +503,7 @@ function deal() {
   me.rerolls = 1 + (luck ? 1 : 0) + passives(me).reduce((a, e) => a + (e.fx.reroll || 0), 0);
   if (luck) addLog('<b>행운</b> 발동 · 추가 리롤 +1');
   op.hand = drawCards(op, 7, []);
+  if (AI().reroll) aiReroll(op);
   op.sel = Math.random() < AI().randomPick ? shuffle([0, 1, 2, 3, 4, 5, 6]).slice(0, 5) : best5(op.hand);
   renderAll(); renderHand(true); evCompose(); startTimer();
   for (let i = 0; i < 7; i++) setTimeout(() => Sfx.play('deal'), i * 70);
@@ -650,7 +687,8 @@ async function resolve() {
   for (const id of shuffle(op.inv.filter(id => EF[id].k === 'A' && !(op.cd[id] > 0)))) {
     if (!live(tok)) return;
     if (EF[id].fx.mirror && !op.lastUsed) continue;
-    if (Math.random() < AI().useRate) await useActive(op, id);
+    const ai = AI(), use = Math.random() < ai.smart ? aiWants(op, EF[id]) : Math.random() < ai.useRate;
+    if (use) await useActive(op, id);
   }
   if (!live(tok)) return;
   for (const [a, b] of [[me, op], [op, me]]) if (a.confuse) {
@@ -739,7 +777,11 @@ async function resolve() {
       const ag = wm.find(m => m.fx.again); if (ag) { const d3 = applyDamage(lose, diff, { pierce, label: '찬스 스텝' }); stat(win, ag.src, 'dmg', d3); addLog(`<b>찬스 스텝</b> 재결산 ${d3}`); await pace(550); if (!live(tok)) return; }
       const dt = wm.find(m => m.fx.dot); if (dt) { lose.dots.push({ dmg: dt.fx.dot, turns: 2, src: dt.src }); addLog(`<b>열상</b> · 지속 피해 ${dt.fx.dot} (2턴)`); }
     } else if (wm.some(m => m.fx.again)) addLog('찬스 스텝 불발');
-    const cnt = lose.mods.find(m => m.fx.counter); if (cnt && lose._lastTaken === 0) { lose.counter = cnt.fx.counter; addLog(`<b>반격</b> 준비 · 다음 턴 +${cnt.fx.counter}`); }
+  }
+  // 반격 : 이번 라운드에 피해를 받지 않은 쪽(이긴 쪽·무승부 포함)이 반격을 썼다면 다음 턴 보너스
+  for (const s of [me, op]) {
+    const cnt = s.mods.find(m => m.fx.counter), took = s === lose ? (lose._lastTaken || 0) : 0;
+    if (cnt && took === 0) { s.counter = cnt.fx.counter; addLog(`${who(s)} · <b>반격</b> 준비 · 다음 턴 +${cnt.fx.counter}`); }
   }
   for (const s of [me, op]) {
     if (s.counter && !s.mods.some(m => m.fx.counter)) s.counter = 0;
@@ -832,7 +874,10 @@ function battleMenu() {
   f.innerHTML = btn('게임 방법', '', C.yellow, 'id="bmGuide"') + btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
   $('#bmGuide', w).onclick = () => guideModal();
   $('#stX', w).onclick = () => closeModal();
-  $('#bmSur', w).onclick = () => { closeModal(true); S.me.hp = 0; renderHUD(S.me); endBattle(false, '항복'); };
+  $('#bmSur', w).onclick = async () => {
+    if (!await confirmModal('정말 항복할까요?', '이번 대전은 패배로 기록됩니다.', '항복하기')) return;
+    if (!S || S.ended) return; S.me.hp = 0; renderHUD(S.me); endBattle(false, '항복');
+  };
   $('#bmOut', w).onclick = () => { closeModal(true); stopTimer(); S.alive = null; S.ended = true; App.go('home'); };
   if (S.ended) $('#bmSur', w).disabled = true;
 }
