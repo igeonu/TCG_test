@@ -14,7 +14,7 @@ input{font-family:inherit}
 .r{color:var(--red)}.hl{color:var(--gold)}
 .blink{animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
 .row{display:flex;gap:10px;align-items:center}
-.empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:60px}
+.empty-msg{grid-column:1/-1;text-align:center;color:var(--mut);padding:60px}
 
 #stage{position:absolute;width:1440px;height:810px;transform-origin:0 0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,var(--felt2),var(--felt) 60%,var(--deep));box-shadow:0 20px 60px rgba(0,0,0,.7)}
 #screens,#chrome,#layer,#toasts{position:absolute;inset:0}
@@ -104,7 +104,7 @@ input{font-family:inherit}
 
 /* ---------- 홈 ---------- */
 .home{position:absolute;inset:0}
-.show{position:absolute;left:40px;top:44px;width:340px;height:470px;perspective:900px}
+.ace-show{position:absolute;left:40px;top:44px;width:340px;height:470px;perspective:900px}
 .ace{position:absolute;inset:16px;background:#fff;color:var(--ink);border:5px solid var(--ink);border-radius:16px;padding:20px;transform:rotate(-4deg);transition:transform .25s ease-out;box-shadow:10px 10px 0 var(--yellow);animation:bob 4s ease-in-out infinite;display:flex;flex-direction:column}
 @keyframes bob{50%{translate:0 -10px}}
 .shine{position:absolute;inset:0;border-radius:11px;pointer-events:none}
@@ -168,7 +168,7 @@ input{font-family:inherit}
 .frow{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:14px 22px;border-bottom:2px dashed var(--ln);transition:opacity .2s}
 .frow:last-child{border:0}.frow b{display:block;font-size:15px}.frow small{font-size:12px;color:var(--mut)}
 .frow.sub{padding-left:46px;background:#09231c}.frow.dis{opacity:.35;pointer-events:none}
-.in{background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:8px;padding:9px 12px;font-size:14px;font-weight:700;width:260px;box-shadow:3px 3px 0 rgba(0,0,0,.4)}.in:focus{outline:3px solid var(--gold)}
+.inp{background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:8px;padding:9px 12px;font-size:14px;font-weight:700;width:260px;box-shadow:3px 3px 0 rgba(0,0,0,.4)}.inp:focus{outline:3px solid var(--gold)}
 .sw{width:58px;height:32px;border-radius:16px;background:var(--gray);border:3px solid var(--ink);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
 .sw i{position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid var(--ink);transition:transform .25s cubic-bezier(.4,1.8,.5,1)}
 .sw.on{background:var(--green)}.sw.on i{transform:translateX(26px)}

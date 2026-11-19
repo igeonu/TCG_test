@@ -11,7 +11,7 @@ function homeHTML() {
   const ace = EFFECTS.find(e => e.name === st.topMvp) || EF['♠Q'];
   const last = App.history[0];
   return `<div class="home">
-    <div class="show" id="show"><div class="ace ${isRed(ace.suit) ? 'red' : ''}" id="ace"><div class="shine"></div>
+    <div class="ace-show" id="aceShow"><div class="ace ${isRed(ace.suit) ? 'red' : ''}" id="ace"><div class="shine"></div>
       <div class="ace-h"><b>${ace.suit}${ace.rank}</b><span>${GRADES[ace.g].ko} · ${ace.k === 'A' ? '액티브' : '패시브'}</span></div>
       <div class="ace-art"><span>${ace.suit}</span></div>
       <h3>${ace.name}</h3><p>${ace.desc}</p></div></div>
@@ -29,7 +29,7 @@ function homeHTML() {
   </div>`;
 }
 function bindTilt(el) {
-  const show = $('#show', el), ace = $('#ace', el); if (!show) return;
+  const show = $("#aceShow", el), ace = $('#ace', el); if (!show) return;
   show.addEventListener('mousemove', e => {
     const r = ace.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
     ace.style.transform = `rotateY(${x * 22}deg) rotateX(${-y * 18}deg) rotate(-4deg)`;
@@ -93,7 +93,7 @@ Screens.friend = {
     const tabs = {
       make: () => `<h2>방 만들기</h2><p class="mut">규칙을 정하고 초대 코드를 공유하세요. 게임이 길어지지 않게 하려면 턴 제한을 켜세요.</p>
         <div class="form">
-          <div class="frow"><div><b>방 이름</b><small>친구 목록에 표시됩니다</small></div><input class="in" value="${App.player.name}의 테이블" maxlength="16"></div>
+          <div class="frow"><div><b>방 이름</b><small>친구 목록에 표시됩니다</small></div><input class="inp" value="${App.player.name}의 테이블" maxlength="16"></div>
           <div class="frow"><div><b>턴 제한</b><small>제한 턴에 도달하면 HP가 높은 쪽이 승리</small></div>${sw('lim', R.turnLimit > 0)}</div>
           <div class="frow sub ${R.turnLimit ? '' : 'dis'}"><div><b>제한 턴 수</b><small>턴 제한이 켜져 있을 때만 적용</small></div>${dd('turnLimit', [[10, '10턴'], [15, '15턴'], [20, '20턴']], R.turnLimit || 10)}</div>
           <div class="frow"><div><b>턴당 시간</b><small>패 구성·쇼다운 준비 시간 · 초과 시 자동 제출 (연습 대전 제외)</small></div>${dd('turnTime', [[30, '30초'], [60, '60초'], [90, '90초'], [0, '무제한']], R.turnTime)}</div>
@@ -204,7 +204,7 @@ Screens.cards = {
       if (sort === 'grade') L = L.slice().sort((a, b) => GRADE_ORDER[b.g] - GRADE_ORDER[a.g]);
       if (sort === 'name') L = L.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
       $('#cnt', el).textContent = `${L.length}/52`;
-      $('#grid', el).innerHTML = L.length ? L.map((e, i) => miniCard(e, `${e.id === sel ? 'on' : ''} ${App.myDeck.includes(e.id) ? 'in' : ''}`, `style="--i:${i}" data-tip="<b>${e.name}</b><br>${e.desc}"`)).join('') : '<div class="empty">검색 결과가 없습니다</div>';
+      $('#grid', el).innerHTML = L.length ? L.map((e, i) => miniCard(e, `${e.id === sel ? 'on' : ''} ${App.myDeck.includes(e.id) ? 'in' : ''}`, `style="--i:${i}" data-tip="<b>${e.name}</b><br>${e.desc}"`)).join('') : '<div class="empty-msg">검색 결과가 없습니다</div>';
     };
     $('#grid', el).onclick = e => { const b = e.target.closest('.mc'); if (!b) return; sel = b.dataset.id; $$('.mc', el).forEach(x => x.classList.toggle('on', x === b)); detail(sel); };
     $('#q', el).oninput = e => { q = e.target.value.trim(); grid(); };
@@ -276,7 +276,7 @@ Screens.history = {
     const render = m => {
       const L = App.history.filter(h => m === '전체' || h.mode === m), s = historyStats(L);
       $('#hs', el).innerHTML = [['경기', s.n, C.gray], ['승률', s.rate + '%', C.blue], ['최고 연승', s.best, C.red], ['최다 MVP', s.topMvp, C.purple]].map(([l, v, c]) => `<div style="--c:${c}"><small>${l}</small><b class="num">${v}</b></div>`).join('');
-      $('#hl', el).innerHTML = L.length ? L.map((h, i) => `<div class="hc ${h.win ? 'w' : 'l'}" style="--i:${i}"><b class="pix">${h.win ? 'WIN' : 'LOSE'}</b><div class="hv"><small>${h.mode} · ${h.date}</small><b>vs ${h.opp}</b></div><div class="hx"><span>${h.rounds}R</span><span>MVP <b>${h.mvp}</b></span><span>피해 ${h.dmg}</span></div></div>`).join('') : '<div class="empty">해당 모드의 기록이 없습니다</div>';
+      $('#hl', el).innerHTML = L.length ? L.map((h, i) => `<div class="hc ${h.win ? 'w' : 'l'}" style="--i:${i}"><b class="pix">${h.win ? 'WIN' : 'LOSE'}</b><div class="hv"><small>${h.mode} · ${h.date}</small><b>vs ${h.opp}</b></div><div class="hx"><span>${h.rounds}R</span><span>MVP <b>${h.mvp}</b></span><span>피해 ${h.dmg}</span></div></div>`).join('') : '<div class="empty-msg">해당 모드의 기록이 없습니다</div>';
     };
     $$('#seg button', el).forEach((b, i) => b.onclick = () => { $$('#seg button', el).forEach(x => x.classList.toggle('on', x === b)); $('.pill', el).style.transform = `translateX(${i * 100}%)`; render(b.dataset.m); });
     $('#hl', el).addEventListener('click', e => { const c = e.target.closest('.hc'); if (c) c.classList.toggle('open'); });
