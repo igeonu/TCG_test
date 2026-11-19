@@ -102,7 +102,7 @@ Screens.battle = {
   <div class="b-c">
     <div class="opp-row"><div class="pile sm"><span>상대 덱</span></div><div class="opp-hand" id="handOp"></div><div class="opp-tag">상대 전투 패 · 비공개</div></div>
     <div class="evbox" id="ev"></div>
-    <div class="tools"><span id="tSel"></span><span id="tHand"></span><span id="tRr" class="tchip"></span><span class="tools-r" id="tHint"></span></div>
+    <div class="tools"><span id="tSel"></span><span id="tHand"></span><span id="tRr" class="tchip"></span><span id="tTimer" class="tchip timer" hidden></span><span class="tools-r" id="tHint"></span></div>
     <div class="my-hand" id="handMe"></div>
     <div class="fan-zone"><div class="fan-lbl">효과 카드 (장착) <b class="num" id="invN"></b></div><div class="fan" id="fanMe"></div><div class="pile" id="pileMe"><span>효과 덱</span><b class="num" id="poolN"></b></div></div>
   </div>
@@ -116,7 +116,7 @@ Screens.battle = {
   bind(el, opts) {
     const hp = App.rules.startHP;
     const oppName = opts.opp || (opts.mode === '연습' ? `AI · ${DIFFS[App.diff].ko}` : pick(OPP_NAMES));
-    S = { alive: Symbol(), round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false,
+    S = { alive: Symbol(), round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false, busy: false, tLeft: 0, tInt: null,
       me: mkSide(true, App.player.name, App.myDeck.length ? App.myDeck : DEFAULT_DECK, hp), op: mkSide(false, oppName, randomDeck(), hp) };
     const start = ['♠A', '♠K', '♥7'].filter(id => S.me.pool.includes(id));
     (start.length ? start : S.me.pool.slice(0, 3)).forEach(id => { S.me.inv.push(id); S.me.pool = S.me.pool.filter(x => x !== id); });
@@ -130,9 +130,17 @@ Screens.battle = {
     bindTilt3D($('#fanMe', el), '.ec', 14);
     $('#fanMe', el).addEventListener('mouseover', e => { const c = e.target.closest('.ec'); if (c && !c.contains(e.relatedTarget)) Sfx.play('hover'); });
     $('#handMe', el).addEventListener('mouseover', e => { const c = e.target.closest('.pc.can'); if (c && !c.contains(e.relatedTarget)) Sfx.play('hover'); });
+    // 이벤트 상자 버튼 : 연출 중이거나 이미 누른 버튼은 무시 (더블클릭·Enter 연타 방지)
+    $('#ev', el).addEventListener('click', e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      if (S.busy || S.ended || b.dataset.used || b.disabled) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+      if (['ok', 'go', 'next', 'back', 'rrgo'].includes(b.dataset.a)) b.dataset.used = '1';
+    }, true);
     App.keyH = e => {
+      if (S.ended) return e.key === 'Escape';
       if (e.key === 'Escape') { if ($('#layer .mwrap')) { if (!$('#layer .mwrap.lock')) closeModal(); return true; } battleMenu(); return true; }
-      if (S.phase === 2 && /^[1-7]$/.test(e.key)) { onHandClick({ target: $$('#handMe .pc')[+e.key - 1] }); return true; }
+      if (e.repeat) return false;
+      if (S.phase === 2 && !S.busy && !$('#layer .mwrap') && /^[1-7]$/.test(e.key)) { onHandClick({ target: $$('#handMe .pc')[+e.key - 1] }); return true; }
       if (e.key === 'Enter') { const b = $('#ev .btn.pri:not([disabled])'); if (b && !$('#layer .mwrap')) { b.click(); return true; } }
       return false;
     };
@@ -142,7 +150,30 @@ Screens.battle = {
 };
 
 /* ---------- 렌더 ---------- */
-function renderAll() { renderHUD(S.me); renderHUD(S.op); renderFan(S.me); renderFan(S.op); renderHand(); renderOppHand(); renderTools(); renderSteps(); }
+/* 애니메이션 완료 대기 – 탭이 백그라운드여도 멈추지 않도록 시간 제한 */
+const done = (anim, ms) => Promise.race([anim.finished.catch(() => { }), wait(ms + 150)]);
+const live = tok => !!S && S.alive === tok && !S.ended && !!$('#bt');
+/* 턴당 시간 : 연습 대전을 제외한 대전에서 02~03 단계에 적용, 시간이 끝나면 자동 제출 */
+function startTimer() {
+  stopTimer();
+  if (!App.rules.turnTime || S.mode === '연습') return;
+  S.tLeft = App.rules.turnTime; const tok = S.alive;
+  const show = () => { const t = $('#tTimer'); if (!t) return; t.hidden = false; t.textContent = `⏱ ${S.tLeft}초`; t.classList.toggle('warn', S.tLeft <= 10); };
+  show();
+  S.tInt = setInterval(() => {
+    if (!live(tok)) { stopTimer(); return; }
+    if ($('#layer .mwrap') || S.busy) return;
+    S.tLeft--; show(); if (S.tLeft <= 10 && S.tLeft > 0) Sfx.play('tick', .5);
+    if (S.tLeft <= 0) {
+      stopTimer(); toast('시간 초과 · 자동으로 제출합니다', 'err');
+      S.fateMode = false; S.rrMode = false; S.me.rr = [];
+      if (S.me.sel.length !== 5) S.me.sel = best5(S.me.hand);
+      S.phase = 3; renderAll(); evPrep(); resolve();
+    }
+  }, 1000);
+}
+function stopTimer() { if (S && S.tInt) { clearInterval(S.tInt); S.tInt = null; } const t = $('#tTimer'); if (t) t.hidden = true; }
+function renderAll() { if (!S || !$('#bt')) return; renderHUD(S.me); renderHUD(S.op); renderFan(S.me); renderFan(S.op); renderHand(); renderOppHand(); renderTools(); renderSteps(); }
 function renderSteps() {
   $('#bRound').textContent = S.round; $('#bLimit').textContent = App.rules.turnLimit ? ` / ${App.rules.turnLimit}` : '';
   $$('#bSteps li').forEach(li => { const p = +li.dataset.p; li.className = p === S.phase ? 'on' : p < S.phase ? 'done' : ''; });
@@ -177,7 +208,7 @@ function cardState(side, id) {
 }
 function renderFan(side) {
   const el = side.isMe ? $('#fanMe') : $('#fanOp'); if (!el) return;
-  const n = side.inv.length, mid = (n - 1) / 2, sp = side.isMe ? 104 : 34, rot = side.isMe ? 6 : 7;
+  const n = side.inv.length, mid = (n - 1) / 2, sp = side.isMe ? (n > 5 ? 86 : 104) : (n > 5 ? 28 : 34), rot = side.isMe ? (n > 5 ? 5 : 6) : 7;
   el.innerHTML = side.inv.map((id, i) => {
     const e = EF[id], k = i - mid, style = `--x:${k * sp}px;--y:${Math.abs(k) * (side.isMe ? 9 : 4)}px;--r:${k * rot}deg;z-index:${i + 1}`;
     if (!side.isMe && e.k === 'A' && !side.revealed.has(id)) return `<div class="ec back" style="${style}" data-id="${id}"><span>비공개</span><i>◆</i></div>`;
@@ -231,14 +262,14 @@ async function flyCard(cardEl, order) {
   $('#layer').appendChild(c);
   const dx = t.x + t.w / 2 - (r.x + r.w / 2), dy = t.y + t.h / 2 - (r.y + r.h / 2);
   cardEl.style.opacity = .25;
-  await c.animate([{ transform: 'none' }, { transform: `translate(${dx}px,${dy}px) scale(1.55) rotate(-3deg)` }], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'forwards' }).finished;
+  await done(c.animate([{ transform: 'none' }, { transform: `translate(${dx}px,${dy}px) scale(1.55) rotate(-3deg)` }], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'forwards' }), 420);
   const b = document.createElement('div'); b.className = 'fx-badge'; b.innerHTML = `<em>효과 발동!</em><b>${order}</b>`; c.appendChild(b);
   const col = catColor(EF[cardEl.dataset.id]), cx = t.x + t.w / 2, cy = t.y + t.h / 2;
   Sfx.play('activate'); FX.flash(col, .28); FX.ring(cx, cy, col, 420, 650, 12); FX.ring(cx, cy, '#fff', 260, 500, 6); FX.punch(1.02); BG.pulse(.8);
   burst(cx, cy, ['#ffe08a', '#fff', col], 34, 200);
   c.animate([{ filter: 'brightness(2.2)' }, { filter: 'brightness(1)' }], { duration: 400 });
   await wait(650);
-  await c.animate([{ transform: `translate(${dx}px,${dy}px) scale(1.55) rotate(-3deg)`, opacity: 1 }, { transform: 'none', opacity: .2 }], { duration: 360, easing: 'ease-in', fill: 'forwards' }).finished;
+  await done(c.animate([{ transform: `translate(${dx}px,${dy}px) scale(1.55) rotate(-3deg)`, opacity: 1 }, { transform: 'none', opacity: .2 }], { duration: 360, easing: 'ease-in', fill: 'forwards' }), 360);
   c.remove(); cardEl.style.opacity = '';
 }
 function catColor(e) {
@@ -261,6 +292,7 @@ async function passiveFlash(side, ids) {
 
 /* ---------- 라운드 ---------- */
 async function startRound() {
+  if (!S || S.ended || S.busy || !$('#bt') || (S.round > 0 && S.phase !== 4)) return;
   const tok = S.alive;
   S.round++; S.phase = 1; S.rrMode = false; S.fateMode = false;
   [S.me, S.op].forEach(s => { s.hand = []; s.sel = []; s.rr = []; s.mods = []; s.immune = false; s.confuse = false; s.utilUses = 0; });
@@ -374,7 +406,8 @@ function oppDraft() {
 
 /* ---------- 전투 패 ---------- */
 function deal() {
-  S.phase = 2; S.rrMode = false;
+  if (!S || S.ended || !$('#bt') || S.phase !== 1) return;
+  S.phase = 2; S.rrMode = false; S.fateMode = false;
   const me = S.me, op = S.op;
   me.hand = drawCards(me, 7, []); me.sel = []; me.rr = [];
   const luck = passives(me).some(e => e.fx.luck) && Math.random() < .5;
@@ -382,7 +415,7 @@ function deal() {
   if (luck) addLog('<b>행운</b> 발동 · 추가 리롤 +1');
   op.hand = drawCards(op, 7, []);
   op.sel = Math.random() < AI().randomPick ? shuffle([0, 1, 2, 3, 4, 5, 6]).slice(0, 5) : best5(op.hand);
-  renderAll(); renderHand(true); evCompose();
+  renderAll(); renderHand(true); evCompose(); startTimer();
   for (let i = 0; i < 7; i++) setTimeout(() => Sfx.play('deal'), i * 70);
 }
 function evCompose() {
@@ -398,12 +431,12 @@ function evCompose() {
   b('rrx') && (b('rrx').onclick = () => { S.rrMode = false; S.me.rr = []; renderHand(); renderTools(); evCompose(); });
   b('rrgo') && (b('rrgo').onclick = doReroll);
   b('auto') && (b('auto').onclick = () => { S.me.sel = best5(S.me.hand); renderHand(); renderTools(); evCompose(); });
-  b('ok').onclick = () => { S.phase = 3; renderAll(); evPrep(); };
+  b('ok').onclick = () => { if (S.phase !== 2 || S.me.sel.length !== 5 || S.rrMode) return; S.phase = 3; renderAll(); evPrep(); };
 }
 function onHandClick(e) {
-  const c = e.target && e.target.closest && e.target.closest('.pc'); if (!c) return;
+  const c = e.target && e.target.closest && e.target.closest('.pc'); if (!c || !S || S.busy || S.ended) return;
   const i = +c.dataset.i, s = S.me;
-  if (S.fateMode) { fatePick(i); return; }
+  if (S.fateMode) { if (S.phase === 2 || S.phase === 3) fatePick(i); return; }
   if (S.phase !== 2) { if (S.phase === 3) toast('패를 다시 고르려면 [← 패 다시 고르기]'); return; }
   const p = FX.center(c);
   if (S.rrMode) { s.rr = s.rr.includes(i) ? s.rr.filter(x => x !== i) : [...s.rr, i]; Sfx.play('mark'); }
@@ -419,10 +452,13 @@ function onHandClick(e) {
   }
 }
 async function doReroll() {
-  const s = S.me, idx = [...s.rr];
+  const s = S.me, idx = [...s.rr], tok = S.alive;
+  if (S.busy || S.phase !== 2 || !idx.length || s.rerolls <= 0) return;
+  S.busy = true;
   Sfx.play('reroll');
-  idx.forEach(i => { const el = $$('#handMe .pc')[i]; el.classList.add('flipout'); const p = FX.center(el); burst(p.x, p.y, ['#e6a33c', '#fff'], 8, 60); });
+  idx.forEach(i => { const el = $$('#handMe .pc')[i]; if (!el) return; el.classList.add('flipout'); const p = FX.center(el); burst(p.x, p.y, ['#e6a33c', '#fff'], 8, 60); });
   await wait(260);
+  S.busy = false; if (!live(tok)) return;
   const nw = drawCards(s, idx.length, s.hand); idx.forEach((i, k) => s.hand[i] = nw[k]);
   s.sel = s.sel.filter(i => !idx.includes(i)); s.rr = []; s.rerolls--; S.rrMode = false;
   renderHand(); idx.forEach(i => $$('#handMe .pc')[i].classList.add('flipin'));
@@ -450,9 +486,15 @@ function cardDetail(id, opp) {
     ${e.k === 'A' && !opp ? `<div class="cd-s"><div><b>${st === 'cool' ? `쿨다운 · ${cdv}턴 남음` : st === 'usedNow' ? '이번 턴 사용함' : '준비 완료'}</b><span class="mut">${st === 'ready' ? '지금 사용할 수 있습니다' : st === 'cool' ? `다음 턴 시작 시 ${cdv} → ${cdv - 1}` : st === 'usedNow' ? '' : '전투 패 구성 / 쇼다운 준비 단계에서 사용 가능'}</span></div>
       ${btn(can ? `${e.name} 사용` : st === 'cool' ? `쿨다운 ${cdv} · 잠금` : '지금은 사용 불가', '', can ? C.red : C.gray, `id="cdUse" ${can ? '' : 'disabled'}`, 'pri')}</div>` : ''}
     <button class="xbtn" onclick="closeModal()">×</button></div>`, { cls: 'm-game' });
-  const u = $('#cdUse', w); if (u && can) u.onclick = () => { closeModal(); useActive(S.me, id); };
+  const u = $('#cdUse', w); if (u && can) u.onclick = () => { if (u.disabled || S.busy) return; u.disabled = true; closeModal(); useActive(S.me, id); };
 }
 async function useActive(side, id) {
+  if (side.isMe) { if (S.busy || S.ended || (S.phase !== 2 && S.phase !== 3) || cardState(side, id) !== 'ready') return; S.busy = true; }
+  const tok = S.alive;
+  try { await useActiveInner(side, id, tok); }
+  finally { if (side.isMe && S) S.busy = false; }
+}
+async function useActiveInner(side, id, tok) {
   const e = EF[id], oth = other(side);
   side.cd[id] = e.cd; side.usedOrder++;
   const fx = { ...e.fx }; let label = e.name;
@@ -470,6 +512,7 @@ async function useActive(side, id) {
     if (c) { c.classList.add('reveal'); popAt(c, `${e.name}!`, 'opfx'); const p = FX.center(c); FX.ring(p.x, p.y, catColor(e), 200, 500, 8); burst(p.x, p.y, [catColor(e), '#fff'], 16, 90); }
     Sfx.play('activate'); await wait(500);
   }
+  if (!live(tok)) return;
   const hud = side.isMe ? $('#hudMe') : $('#hudOp');
   if (fx.heal) { const v = Math.min(fx.heal, side.maxHp - side.hp); side.hp += v; stat(side, id, 'heal', v); popAt(hud, `+${v} HP`, 'heal'); FX.sparkle(hud, '#6fffa8', 22); Sfx.play('heal'); hud.classList.add('glow-heal'); setTimeout(() => hud.classList.remove('glow-heal'), 900); }
   if (fx.shield || fx.sturdy) {
@@ -487,12 +530,13 @@ async function useActive(side, id) {
   if (rc && Math.random() < .05 * rc) { side.cd[id] = 0; popAt(hud, '순환 발동! 재사용 가능', 'gold'); }
   addLog(`${side.isMe ? '나' : '상대'} · <b>${label}</b> 사용`);
   renderAll();
-  if (side.isMe) S.phase === 3 ? evPrep() : S.phase === 2 && evCompose();
+  if (side.isMe) { S.busy = false; S.phase === 3 ? evPrep() : S.phase === 2 && evCompose(); }
 }
 function fatePick(i) {
   const s = S.me, have = new Set(s.hand.map(c => c.r + c.s));
   const w = modal(`<div class="fate"><h3>운명 · ${s.hand[i].s}${s.hand[i].r}를 무엇으로 바꿀까요?</h3><div class="fate-g">${SUITS.map(su => RANKS.map(r => `<button class="fg ${isRed(su) ? 'red' : ''}" data-c="${r}|${su}" ${have.has(r + su) ? 'disabled' : ''}>${su}${r}</button>`).join('')).join('')}</div></div>`, { cls: 'm-game' });
   $$('.fg', w).forEach(b => b.onclick = () => {
+    if (!S.fateMode || (S.phase !== 2 && S.phase !== 3)) { closeModal(); return; }
     const [r, su] = b.dataset.c.split('|'); s.hand[i] = { r, s: su }; S.fateMode = false; closeModal();
     renderHand(); $$('#handMe .pc')[i].classList.add('flipin', 'fated'); renderTools();
     addLog(`<b>운명</b> · ${su}${r}로 교체`); S.phase === 3 ? evPrep() : evCompose();
@@ -501,15 +545,18 @@ function fatePick(i) {
 
 /* ---------- 피해 정산 ---------- */
 async function resolve() {
+  if (!S || S.busy || S.ended || S.phase !== 3) return;
   const tok = S.alive, me = S.me, op = S.op;
+  S.busy = true; S.fateMode = false; S.rrMode = false; stopTimer();
   S.phase = 4; renderAll();
   ev(`<div class="ev-k"><b class="pix">04</b> 쇼다운 대기</div><h2>상대의 제출을 기다리는 중<span class="blink">_</span></h2>`);
-  await wait(700);
+  await wait(700); if (!live(tok)) return;
   for (const id of shuffle(op.inv.filter(id => EF[id].k === 'A' && !(op.cd[id] > 0)))) {
-    if (S.alive !== tok) return;
+    if (!live(tok)) return;
     if (EF[id].fx.mirror && !op.lastUsed) continue;
     if (Math.random() < AI().useRate) await useActive(op, id);
   }
+  if (!live(tok)) return;
   for (const [a, b] of [[me, op], [op, me]]) if (a.confuse) {
     const k = pick(b.sel), nw = drawCards(b, 1, b.hand)[0];
     b.hand[k] = nw; b.confused = k; addLog(`<b>혼란</b> · ${b.isMe ? '내' : '상대'} 카드 1장이 ${nw.s}${nw.r}로 바뀜`);
@@ -521,31 +568,35 @@ async function resolve() {
     <div class="sd-side me"><div class="sd-n">나</div><div class="sd-cards">${row(me)}</div><div class="sd-f"><span class="sd-h">${A.h.name}</span><span class="fml num">${formula(A)}</span></div><b class="sd-s num" id="sdMe">0</b></div></div>`, 'showdown');
   me.confused = op.confused = undefined;
   for (const f of [...$$('#ev .sd-side.op .sd-c'), ...$$('#ev .sd-side.me .sd-c')]) {
-    if (S.alive !== tok) return; f.classList.add('open'); Sfx.play('flip');
+    if (!live(tok)) return; f.classList.add('open'); Sfx.play('flip');
     const p = FX.center(f); burst(p.x, p.y, ['#fff', '#ffe08a'], 5, 40); await wait(120);
   }
-  await wait(200);
+  await wait(200); if (!live(tok)) return;
   const hf = HAND_FX[A.h.key];
   if (hf && hf[2] >= 1) {
     $$('#ev .sd-side.me .sd-c').forEach((c, k) => c.animate([{ translate: '0 0' }, { translate: '0 -16px' }, { translate: '0 0' }], { duration: 380, delay: k * 60, easing: 'cubic-bezier(.2,1.6,.4,1)' }));
     await FX.banner(hf[0] + '!', `${A.h.name} · 기본 ${A.h.base}점`, hf[1] === 'rainbow' ? C.red : hf[1], hf[2] >= 4 ? 'rainbow' : hf[2] >= 3 ? 'hot' : '');
     if (hf[2] >= 3) FX.confetti(hf[2] >= 4 ? 160 : 60);
   }
+  if (!live(tok)) return;
   await Promise.all([passiveFlash(me, A.parts.filter(p => p.pas).map(p => p.src)), passiveFlash(op, B.parts.filter(p => p.pas).map(p => p.src))]);
+  if (!live(tok)) return;
   $$('#ev .sd-f').forEach(f => f.classList.add('show'));
   let sA = A.score, sB = B.score;
   const critA = A.crit && rnd(100) < A.crit, critB = B.crit && rnd(100) < B.crit;
   await Promise.all([countScore($('#sdMe'), sA, 800), countScore($('#sdOp'), sB, 800)]);
   for (const [crit, isMe] of [[critA, true], [critB, false]]) if (crit) {
+    if (!live(tok)) return;
     Sfx.play('crit'); await FX.hitstop(120); FX.flash('#ffe08a', .5); FX.shake(.8);
+    if (!live(tok)) return;
     if (isMe) { sA = Math.round(sA * 1.5); addLog('<b>치명타!</b> 내 점수 ×1.5'); } else { sB = Math.round(sB * 1.5); addLog('상대 <b>치명타!</b>'); }
     const el = isMe ? $('#sdMe') : $('#sdOp'); el.textContent = isMe ? sA : sB; const p = FX.center(el); FX.star(p.x, p.y, '#ffe08a', 220);
     await FX.banner('CRITICAL!', `${isMe ? '내' : '상대'} 점수 ×1.5 → ${isMe ? sA : sB}`, C.red, 'hot');
   }
-  await wait(250); if (S.alive !== tok) return;
+  await wait(250); if (!live(tok)) return;
   const win = sA > sB ? me : sB > sA ? op : null, lose = win ? other(win) : null, diff = Math.abs(sA - sB);
   if (App.battleOpt.forecast) await forecast(sA, sB, A, B, win, diff);
-  if (S.alive !== tok) return;
+  if (!live(tok)) return;
   const box = $('#ev');
   // 점수 충돌 연출
   const eMe = $('#sdMe'), eOp = $('#sdOp');
@@ -553,28 +604,30 @@ async function resolve() {
     const vs = FX.center($('#ev .sd-vs')), pm = FX.center(eMe), po = FX.center(eOp);
     Sfx.play('whoosh');
     await Promise.all([
-      eMe.animate([{ translate: '0 0' }, { translate: `${(vs.x - pm.x) * .8}px ${(vs.y - pm.y) * .5}px`, scale: 1.3 }], { duration: 260, easing: 'cubic-bezier(.6,0,.9,.4)' }).finished,
-      eOp.animate([{ translate: '0 0' }, { translate: `${(vs.x - po.x) * .8}px ${(vs.y - po.y) * .5}px`, scale: 1.3 }], { duration: 260, easing: 'cubic-bezier(.6,0,.9,.4)' }).finished,
+      done(eMe.animate([{ translate: '0 0' }, { translate: `${(vs.x - pm.x) * .8}px ${(vs.y - pm.y) * .5}px`, scale: 1.3 }], { duration: 260, easing: 'cubic-bezier(.6,0,.9,.4)' }), 260),
+      done(eOp.animate([{ translate: '0 0' }, { translate: `${(vs.x - po.x) * .8}px ${(vs.y - po.y) * .5}px`, scale: 1.3 }], { duration: 260, easing: 'cubic-bezier(.6,0,.9,.4)' }), 260),
     ]);
     Sfx.play('clash'); FX.flash('#fff', .55, 200); FX.ring(vs.x, vs.y, '#fff', 380, 500, 14); FX.star(vs.x, vs.y, '#ffe08a', 260); burst(vs.x, vs.y, ['#fff', '#ffe08a', C.red, C.blue], 36, 240); FX.shake(.7);
     if (win) { (win.isMe ? eMe : eOp).classList.add('sd-win'); (win.isMe ? eOp : eMe).classList.add('sd-lose'); }
     else { eMe.classList.add('sd-lose'); eOp.classList.add('sd-lose'); }
   }
-  box.classList.add('clash'); await wait(420);
+  if (!live(tok)) return;
+  box.classList.add('clash'); await wait(420); if (!live(tok)) return;
   if (!win) { popAt($('#ev'), '무승부 — 피해 없음', 'tie'); addLog('무승부 · 피해 없음'); FX.banner('DRAW', '점수가 같아 피해 없음', C.gray); }
   else {
     const wm = win.mods, pierce = wm.some(m => m.fx.pierce), brk = wm.reduce((a, m) => a + (m.fx.breakS || 0), 0);
     const from = FX.center(win.isMe ? eMe : eOp), to = FX.center(lose.isMe ? $('#hudMe') : $('#hudOp'));
     await FX.beam(from, to, win.isMe ? '#8db8ff' : '#ff9a84');
+    if (!live(tok)) return;
     const dealt = applyDamage(lose, diff, { pierce, brk, big: true });
-    await wait(dealt / lose.maxHp >= .2 ? 420 : 200);
-    if (dealt / lose.maxHp >= .2) await FX.banner(dealt / lose.maxHp >= .35 ? 'DEVASTATING!' : 'BIG HIT!', `${dealt} 피해`, C.red, 'hot');
     attribute(win, win === me ? A : B, dealt);
     addLog(`${win.isMe ? '내' : '상대'} 승리 · ${Math.max(sA, sB)} - ${Math.min(sA, sB)} = <b class="r">${diff}</b> → ${lose.isMe ? '나' : '상대'} HP -${dealt}`);
-    await wait(650);
+    await wait(dealt / lose.maxHp >= .2 ? 420 : 200); if (!live(tok)) return;
+    if (dealt / lose.maxHp >= .2) await FX.banner(dealt / lose.maxHp >= .35 ? 'DEVASTATING!' : 'BIG HIT!', `${dealt} 피해`, C.red, 'hot');
+    await wait(650); if (!live(tok)) return;
     if (dealt > 0) {
-      const ch = wm.find(m => m.fx.chain); if (ch) { const d2 = applyDamage(lose, Math.floor(dealt * ch.fx.chain), { pierce: true, label: '연격' }); stat(win, ch.src, 'dmg', d2); addLog(`<b>연격</b> 추가 피해 ${d2}`); await wait(550); }
-      const ag = wm.find(m => m.fx.again); if (ag) { const d3 = applyDamage(lose, diff, { pierce, label: '찬스 스텝' }); stat(win, ag.src, 'dmg', d3); addLog(`<b>찬스 스텝</b> 재결산 ${d3}`); await wait(550); }
+      const ch = wm.find(m => m.fx.chain); if (ch) { const d2 = applyDamage(lose, Math.floor(dealt * ch.fx.chain), { pierce: true, label: '연격' }); stat(win, ch.src, 'dmg', d2); addLog(`<b>연격</b> 추가 피해 ${d2}`); await wait(550); if (!live(tok)) return; }
+      const ag = wm.find(m => m.fx.again); if (ag) { const d3 = applyDamage(lose, diff, { pierce, label: '찬스 스텝' }); stat(win, ag.src, 'dmg', d3); addLog(`<b>찬스 스텝</b> 재결산 ${d3}`); await wait(550); if (!live(tok)) return; }
       const dt = wm.find(m => m.fx.dot); if (dt) { lose.dots.push({ dmg: dt.fx.dot, turns: 2, src: dt.src }); addLog(`<b>열상</b> · 지속 피해 ${dt.fx.dot} (2턴)`); }
     } else if (wm.some(m => m.fx.again)) addLog('찬스 스텝 불발');
     const cnt = lose.mods.find(m => m.fx.counter); if (cnt && lose._lastTaken === 0) { lose.counter = cnt.fx.counter; addLog(`<b>반격</b> 준비 · 다음 턴 +${cnt.fx.counter}`); }
@@ -586,8 +639,9 @@ async function resolve() {
   }
   box.classList.remove('clash'); renderAll();
   if (checkDeath()) return;
-  if (App.rules.turnLimit && S.round >= App.rules.turnLimit) { await wait(700); endBattle(me.hp >= op.hp, '턴 제한 도달'); return; }
-  await wait(500);
+  if (App.rules.turnLimit && S.round >= App.rules.turnLimit) { await wait(700); if (live(tok)) endBattle(me.hp >= op.hp, '턴 제한 도달'); return; }
+  await wait(500); if (!live(tok)) return;
+  S.busy = false;
   ev(`<div class="ev-k"><b class="pix">04</b> 피해 정산 결과 <span class="ev-r num">ROUND ${S.round}</span></div>
     <div class="ev-2"><div><h2>${!win ? '무승부' : win.isMe ? '공격 성공!' : '피해를 받았습니다'}</h2><p>내 점수 <b>${sA}</b> · 상대 점수 <b>${sB}</b> · 차이 <b class="r">${diff}</b></p></div>
       <div class="ev-hp"><div><span>나</span><b class="num">${me.hp}</b></div><div><span>상대</span><b class="num">${op.hp}</b></div></div></div>
@@ -665,10 +719,11 @@ function battleMenu() {
   f.innerHTML = btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
   $('#stX', w).onclick = () => closeModal();
   $('#bmSur', w).onclick = () => { closeModal(true); S.me.hp = 0; renderHUD(S.me); endBattle(false, '항복'); };
-  $('#bmOut', w).onclick = () => { closeModal(true); S.alive = null; App.go('home'); };
+  $('#bmOut', w).onclick = () => { closeModal(true); stopTimer(); S.alive = null; S.ended = true; App.go('home'); };
+  if (S.ended) $('#bmSur', w).disabled = true;
 }
 function endBattle(win, why) {
-  if (!S || S.ended) return; S.ended = true; S.phase = 5; closeModal(true);
+  if (!S || S.ended || !$('#bt')) return; S.ended = true; S.phase = 5; stopTimer(); closeModal(true);
   App.lastResult = buildResult(win);
   App.addHistory({ win, mode: S.mode, rounds: S.round, mvp: App.lastResult.me.mvpName, dmg: App.lastResult.me.total, opp: S.op.name, date: new Date().toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\s/g, '').replace(/\.$/, ''), hp: Math.max(0, S.me.hp) });
   const ov = document.createElement('div'); ov.className = 'endov ' + (win ? 'win' : 'lose');

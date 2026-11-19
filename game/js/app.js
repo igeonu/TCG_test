@@ -30,7 +30,7 @@ const App = {
     const h = store.get('history', null);
     this._hist = Array.isArray(h) && h.length ? h : [...SAMPLE_HISTORY];
     this.battleOpt = { ...this.battleOpt, ...store.get('battleOpt', {}) };
-    this.diff = store.get('diff', 'normal');
+    this.diff = store.get('diff', 'normal'); if (!DIFFS[this.diff]) this.diff = 'normal';
     $('#chrome').innerHTML = `
       <header class="hd pe"><div class="hd-logo">RUNE DUEL<small>룬 결투</small></div><span class="hd-where" id="hdWhere"></span>
         <div class="hd-prof"><span class="av"></span><div><b>${this.player.name}</b><small>LV. ${this.player.lv}</small></div><button class="hd-set" id="hdSet">설정</button></div></header>
@@ -40,7 +40,7 @@ const App = {
     $('#hdSet').onclick = () => settingsModal();
     window.addEventListener('resize', () => this.fit());
     document.addEventListener('keydown', e => {
-      if (e.target.matches('input,textarea,select') && e.key !== 'Escape') return;
+      if (e.target && e.target.matches && e.target.matches('input,textarea,select') && e.key !== 'Escape') return;
       if (this.keyH && this.keyH(e) === true) { e.preventDefault(); return; }
       if (e.key === 'Escape') { if ($('#layer .mwrap')) { closeModal(); return; } if (Screens[this.screen] && Screens[this.screen].tab && this.screen !== 'home') this.go('home'); }
     });
@@ -64,6 +64,8 @@ const App = {
     this.clear(); closeModal(true); hideTip();
     $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner').forEach(x => x.remove());
     const host = $('#screens'), olds = [...host.children];
+    // 사라지는 화면의 id를 지워, 새 화면과 id가 겹쳐 엉뚱한 곳에 그려지는 일을 막음
+    olds.forEach(o => $$('[id]', o).forEach(x => x.removeAttribute('id')));
     const el = document.createElement('div');
     el.className = `screen s-${screen} ${S.full ? 'full' : ''}`;
     el.innerHTML = S.html(opts);
@@ -84,7 +86,7 @@ const App = {
   every(fn, ms) { const t = setInterval(fn, ms); this.timers.push(() => clearInterval(t)); return t; },
   clear() { this.timers.forEach(f => f()); this.timers = []; this.keyH = null; },
   stagePt(cx, cy) { const r = $('#stage').getBoundingClientRect(); return { x: (cx - r.left) / this.scale, y: (cy - r.top) / this.scale }; },
-  rectOf(el) { const r = el.getBoundingClientRect(), p = this.stagePt(r.left, r.top); return { x: p.x, y: p.y, w: r.width / this.scale, h: r.height / this.scale }; },
+  rectOf(el) { if (!el) return { x: 720, y: 405, w: 0, h: 0 }; const r = el.getBoundingClientRect(), p = this.stagePt(r.left, r.top); return { x: p.x, y: p.y, w: r.width / this.scale, h: r.height / this.scale }; },
   startBattle(o = {}) { this.go('battle', o); },
   addHistory(h) { this.history = [h, ...this.history].slice(0, 30); },
 };

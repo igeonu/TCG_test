@@ -3,8 +3,8 @@
    RUNE DUEL – 데이터 (효과 카드 52장 · 덱 규칙 · 대전 기록 · AI 난이도)
    ※ "특성" 기능은 현재 제외된 상태입니다.
    ========================================================= */
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const $ = (s, r = document) => r ? r.querySelector(s) : null;
+const $$ = (s, r = document) => r ? [...r.querySelectorAll(s)] : [];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];

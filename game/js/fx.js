@@ -114,14 +114,14 @@ const FX = {
     }
   },
   sparkle(el, color = '#6fffa8', n = 18) {
-    const { r } = this.center(el);
+    if (!el) return; const { r } = this.center(el);
     for (let i = 0; i < n; i++) {
       const d = this.add('fx-spark', `left:${r.x + Math.random() * r.w}px;top:${r.y + r.h * (.4 + Math.random() * .6)}px;color:${color};font-size:${12 + rnd(14)}px`, pick(['✦', '+', '✧', '·']), 1300);
       d.animate([{ transform: 'translateY(0) scale(.4)', opacity: 0 }, { transform: 'translateY(-20px) scale(1.2)', opacity: 1, offset: .2 }, { transform: `translateY(${-70 - rnd(60)}px) scale(.6)`, opacity: 0 }], { duration: 900 + rnd(400), delay: rnd(250), easing: 'ease-out', fill: 'both' });
     }
   },
   bubble(el, color = '#9cc2ff') {
-    const { x, y, r } = this.center(el), s = Math.max(r.w, r.h) * 1.15;
+    if (!el) return; const { x, y, r } = this.center(el), s = Math.max(r.w, r.h) * 1.15;
     const d = this.add('fx-bubble', `left:${x}px;top:${y}px;width:${s}px;height:${s}px;margin:${-s / 2}px;--c:${color}`, '', 1000);
     d.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.05)', opacity: 1, offset: .3 }, { transform: 'scale(1)', opacity: 1, offset: .7 }, { transform: 'scale(1.2)', opacity: 0 }], { duration: 950, easing: 'ease-out', fill: 'forwards' });
   },
@@ -144,14 +144,19 @@ const FX = {
 
 /* 숫자 카운트업 + 틱 소리 + 크기 펄스 */
 function countScore(el, to, ms = 900) {
+  if (!el) return Promise.resolve();
   const t0 = performance.now(); let last = -1;
   return new Promise(res => {
+    let fin = false;
+    const finish = () => { if (fin) return; fin = true; el.textContent = to; el.style.scale = ''; el.animate([{ scale: 1.6 }, { scale: 1 }], { duration: 300, easing: 'cubic-bezier(.2,1.8,.4,1)' }); res(); };
     const step = t => {
+      if (fin) return;
       const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3), v = Math.round(to * e);
       if (v !== last) { el.textContent = v; if (v % 2 === 0 || k === 1) { Sfx.play('tick', k); el.style.scale = 1 + .25 * (1 - k) + ''; } last = v; }
-      if (k < 1) requestAnimationFrame(step); else { el.style.scale = ''; el.animate([{ scale: 1.6 }, { scale: 1 }], { duration: 300, easing: 'cubic-bezier(.2,1.8,.4,1)' }); res(); }
+      if (k < 1) requestAnimationFrame(step); else finish();
     };
     requestAnimationFrame(step);
+    setTimeout(finish, ms + 300); // 탭이 백그라운드라 프레임이 멈춰도 진행
   });
 }
 

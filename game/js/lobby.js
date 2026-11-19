@@ -96,7 +96,7 @@ Screens.friend = {
           <div class="frow"><div><b>방 이름</b><small>친구 목록에 표시됩니다</small></div><input class="in" value="${App.player.name}의 테이블" maxlength="16"></div>
           <div class="frow"><div><b>턴 제한</b><small>제한 턴에 도달하면 HP가 높은 쪽이 승리</small></div>${sw('lim', R.turnLimit > 0)}</div>
           <div class="frow sub ${R.turnLimit ? '' : 'dis'}"><div><b>제한 턴 수</b><small>턴 제한이 켜져 있을 때만 적용</small></div>${dd('turnLimit', [[10, '10턴'], [15, '15턴'], [20, '20턴']], R.turnLimit || 10)}</div>
-          <div class="frow"><div><b>턴당 시간</b><small>시간 초과 시 자동 제출 (표시용)</small></div>${dd('turnTime', [[30, '30초'], [60, '60초'], [90, '90초'], [0, '무제한']], R.turnTime)}</div>
+          <div class="frow"><div><b>턴당 시간</b><small>패 구성·쇼다운 준비 시간 · 초과 시 자동 제출 (연습 대전 제외)</small></div>${dd('turnTime', [[30, '30초'], [60, '60초'], [90, '90초'], [0, '무제한']], R.turnTime)}</div>
           <div class="frow"><div><b>시작 HP</b><small>양쪽 모두 같은 HP로 시작</small></div>${dd('startHP', [[60, 'HP 60'], [100, 'HP 100'], [150, 'HP 150']], R.startHP)}</div>
         </div><div class="fa">${btn('방 만들기', 'CREATE', C.red, 'id="mk"', 'wide')}</div>`,
       code: () => `<h2>코드로 입장</h2><p class="mut">친구에게 받은 초대 코드의 RD- 뒤 4자리를 입력하세요.</p>
