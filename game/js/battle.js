@@ -7,7 +7,7 @@ const HANDS = { none: ['—', 0], high: ['하이 카드', 5], pair: ['원 페어
 const PV = { A: 14, J: 11, Q: 12, K: 13 };
 const pv = r => PV[r] || +r;
 function evalHand(cards) {
-  if (!cards.length) return { key: 'none', name: '—', base: 0, tb: 0 };
+  if (!cards.length) return { key: 'none', name: '—', base: 0, tb: 0, rank: [0] };
   const vals = cards.map(c => pv(c.r)).sort((a, b) => b - a);
   const cnt = {}; vals.forEach(v => cnt[v] = (cnt[v] || 0) + 1);
   const groups = Object.values(cnt).sort((a, b) => b - a);
@@ -23,13 +23,21 @@ function evalHand(cards) {
   else if (groups[0] === 3) key = 'trips';
   else if (groups[0] === 2 && groups[1] === 2) key = 'two';
   else if (groups[0] === 2) key = 'pair';
-  return { key, name: HANDS[key][0], base: HANDS[key][1], tb: vals.reduce((a, v) => a + v, 0) };
+  // 동점 비교용 순위 : [족보 순위, 묶음 많은 숫자 → 큰 숫자 순] (스트레이트는 최고 숫자)
+  const order = Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a] || b - a);
+  const rank = [HAND_ORDER.indexOf(key), ...(straight ? [high] : order)];
+  return { key, name: HANDS[key][0], base: HANDS[key][1], tb: vals.reduce((a, v) => a + v, 0), rank };
 }
+const KICKER_DMG = 3;   // 같은 점수에서 숫자·키커로 이겼을 때의 고정 피해
+const HAND_ORDER = ['none', 'high', 'pair', 'two', 'trips', 'straight', 'flush', 'full', 'quads', 'sf', 'royal'];
+// 두 패 비교 : 양수면 a가 강함, 0이면 완전 동일
+function cmpHand(a, b) { for (let i = 0; i < Math.max(a.rank.length, b.rank.length); i++) { const d = (a.rank[i] || 0) - (b.rank[i] || 0); if (d) return d; } return 0; }
+const PV_NAME = { 14: 'A', 13: 'K', 12: 'Q', 11: 'J' }, pvName = v => PV_NAME[v] || String(v);
 function best5(hand) {
   let best = null, bi = null;
   for (let a = 0; a < 7; a++) for (let b = a + 1; b < 7; b++) {
     const idx = [0, 1, 2, 3, 4, 5, 6].filter(i => i !== a && i !== b), h = evalHand(idx.map(i => hand[i]));
-    if (!best || h.base > best.base || (h.base === best.base && h.tb > best.tb)) { best = h; bi = idx; }
+    if (!best || cmpHand(h, best) > 0) { best = h; bi = idx; }
   }
   return bi;
 }
@@ -114,9 +122,9 @@ Screens.battle = {
     <div class="log" id="log"></div>
   </div></div>`,
   bind(el, opts) {
-    const hp = App.rules.startHP;
+    const rules = { ...DEFAULT_RULES, ...(opts.mode === '친구' && opts.rules ? opts.rules : {}) }, hp = rules.startHP;
     const oppName = opts.opp || (opts.mode === '연습' ? `AI · ${DIFFS[App.diff].ko}` : pick(OPP_NAMES));
-    S = { alive: Symbol(), round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false, busy: false, tLeft: 0, tInt: null,
+    S = { alive: Symbol(), rules, round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false, busy: false, skip: false, seenCut: new Set(), tLeft: 0, tInt: null,
       me: mkSide(true, App.player.name, App.myDeck.length ? App.myDeck : DEFAULT_DECK, hp), op: mkSide(false, oppName, randomDeck(), hp) };
     const start = ['♠A', '♠K', '♥7'].filter(id => S.me.pool.includes(id));
     (start.length ? start : S.me.pool.slice(0, 3)).forEach(id => { S.me.inv.push(id); S.me.pool = S.me.pool.filter(x => x !== id); });
@@ -136,8 +144,11 @@ Screens.battle = {
       if (S.busy || S.ended || b.dataset.used || b.disabled) { e.stopImmediatePropagation(); e.preventDefault(); return; }
       if (['ok', 'go', 'next', 'back', 'rrgo'].includes(b.dataset.a)) b.dataset.used = '1';
     }, true);
+    // 피해 정산 연출 건너뛰기 : 화면 클릭 또는 Space
+    el.addEventListener('click', e => { if (S.phase === 4 && S.busy && !S.skip && !e.target.closest('button,.ec,.pc')) skipFx(); });
     App.keyH = e => {
       if (S.ended) return e.key === 'Escape';
+      if (e.key === ' ' && S.phase === 4 && S.busy) { if (!S.skip) skipFx(); return true; }
       if (e.key === 'Escape') { if ($('#layer .mwrap')) { if (!$('#layer .mwrap.lock')) closeModal(); return true; } battleMenu(); return true; }
       if (e.repeat) return false;
       if (S.phase === 2 && !S.busy && !$('#layer .mwrap') && /^[1-7]$/.test(e.key)) { onHandClick({ target: $$('#handMe .pc')[+e.key - 1] }); return true; }
@@ -152,12 +163,17 @@ Screens.battle = {
 /* ---------- 렌더 ---------- */
 /* 애니메이션 완료 대기 – 탭이 백그라운드여도 멈추지 않도록 시간 제한 */
 const done = (anim, ms) => Promise.race([anim.finished.catch(() => { }), wait(ms + 150)]);
+function skipFx() {
+  S.skip = true;
+  $$('.fx-banner,.fx-cutin').forEach(x => x.remove());
+  const t = $('#tHint'); if (t) t.textContent = '연출 건너뛰는 중…';
+}
 const live = tok => !!S && S.alive === tok && !S.ended && !!$('#bt');
 /* 턴당 시간 : 연습 대전을 제외한 대전에서 02~03 단계에 적용, 시간이 끝나면 자동 제출 */
 function startTimer() {
   stopTimer();
-  if (!App.rules.turnTime || S.mode === '연습') return;
-  S.tLeft = App.rules.turnTime; const tok = S.alive;
+  if (!S.rules.turnTime || S.mode === '연습') return;
+  S.tLeft = S.rules.turnTime; const tok = S.alive;
   const show = () => { const t = $('#tTimer'); if (!t) return; t.hidden = false; t.textContent = `⏱ ${S.tLeft}초`; t.classList.toggle('warn', S.tLeft <= 10); };
   show();
   S.tInt = setInterval(() => {
@@ -175,14 +191,14 @@ function startTimer() {
 function stopTimer() { if (S && S.tInt) { clearInterval(S.tInt); S.tInt = null; } const t = $('#tTimer'); if (t) t.hidden = true; }
 function renderAll() { if (!S || !$('#bt')) return; renderHUD(S.me); renderHUD(S.op); renderFan(S.me); renderFan(S.op); renderHand(); renderOppHand(); renderTools(); renderSteps(); }
 function renderSteps() {
-  $('#bRound').textContent = S.round; $('#bLimit').textContent = App.rules.turnLimit ? ` / ${App.rules.turnLimit}` : '';
+  $('#bRound').textContent = S.round; $('#bLimit').textContent = S.rules.turnLimit ? ` / ${S.rules.turnLimit}` : '';
   $$('#bSteps li').forEach(li => { const p = +li.dataset.p; li.className = p === S.phase ? 'on' : p < S.phase ? 'done' : ''; });
 }
 function renderHUD(side) {
   const el = side.isMe ? $('#hudMe') : $('#hudOp'); if (!el) return;
   if (!el.dataset.init) {
     el.dataset.init = 1;
-    el.innerHTML = `<div class="hud-tag pix">${side.isMe ? 'YOU' : 'RIVAL'}</div><div class="hud-row"><div class="hud-av">${side.isMe ? '♠' : '◆'}</div><div class="hud-n">${side.isMe ? '나 (' + side.name + ')' : side.name}<small>${side.isMe ? '내 진영' : S.mode === '연습' ? `AI 난이도 · ${DIFFS[App.diff].ko}` : '상대 진영'}</small></div></div>
+    el.innerHTML = `<div class="hud-tag pix">${side.isMe ? 'YOU' : 'RIVAL'}</div><div class="hud-row"><div class="hud-av">${side.isMe ? '♠' : '◆'}</div><div class="hud-n">${side.isMe ? '나 (' + side.name + ')' : side.name}<small>${side.isMe ? '내 진영' : S.mode === '연습' ? `AI 난이도 · ${DIFFS[App.diff].ko}` : 'AI 상대 · 온라인 준비 중'}</small></div></div>
       <div class="hud-hp"><span class="pix">HP</span><b class="hp-v num">${side.hp}</b><em class="num">/ ${side.maxHp}</em></div>
       <div class="hpbar"><i class="trail"></i><i class="fill"></i><i class="shb"></i></div><div class="hud-st"></div>`;
   }
@@ -245,7 +261,7 @@ function renderTools() {
   $('#tSel').innerHTML = `전투 패 7장 · 선택 <b class="num">${s.sel.length} / 5</b>`;
   $('#tHand').innerHTML = `현재 족보 <b>${h.name}</b>`;
   $('#tRr').textContent = `리롤 ${s.rerolls} · ${S.rrMode ? '선택 중' : '대기'}`; $('#tRr').classList.toggle('on', S.rrMode);
-  $('#tHint').textContent = S.phase === 2 ? (S.rrMode ? '바꿀 카드를 누르세요' : '카드를 눌러 5장 선택 · 숫자키 1~7') : S.fateMode ? '운명: 바꿀 카드를 누르세요' : '';
+  $('#tHint').textContent = S.phase === 2 ? (S.rrMode ? '바꿀 카드를 누르세요' : '카드를 눌러 5장 선택 · 숫자키 1~7') : S.fateMode ? '운명: 바꿀 카드를 누르세요' : S.phase === 4 ? '화면 클릭 또는 Space — 연출 건너뛰기' : '';
   $$('#htable div').forEach(d => d.classList.toggle('on', d.dataset.k === h.key));
 }
 function ev(html, cls = '') { const el = $('#ev'); if (!el) return; el.className = 'evbox ' + cls; el.innerHTML = `<div class="ev-in">${html}</div>`; }
@@ -272,7 +288,7 @@ async function flyCard(cardEl, order) {
   Sfx.play('activate'); FX.flash(col, .28); FX.ring(cx, cy, col, 420, 650, 12); FX.ring(cx, cy, '#fff', 260, 500, 6); FX.punch(1.02); BG.pulse(.8);
   burst(cx, cy, ['#ffe08a', '#fff', col], 34, 200);
   c.animate([{ filter: 'brightness(2.2)' }, { filter: 'brightness(1)' }], { duration: 400 });
-  await wait(650);
+  await pace(650);
   await done(c.animate([{ transform: `translate(${dx}px,${dy}px) scale(1.55) rotate(-3deg)`, opacity: 1 }, { transform: 'none', opacity: .2 }], { duration: 360, easing: 'ease-in', fill: 'forwards' }), 360);
   c.remove(); cardEl.style.opacity = '';
 }
@@ -291,9 +307,9 @@ async function passiveFlash(side, ids) {
     Sfx.play(hiR ? (pe.g === 'L' ? 'legendReveal' : 'epicReveal') : 'passive'); const p = FX.center(c);
     FX.ring(p.x, p.y, rc, hiR ? 300 : 160, hiR ? 600 : 450, hiR ? 10 : 6); burst(p.x, p.y, [rc, '#fff'], hiR ? 26 : 10, hiR ? 150 : 70);
     if (hiR) { FX.flash(rc, .3, 260); FX.textAt(p.x, p.y - 90, pe.g === 'L' ? '★ LEGENDARY' : '◆ EPIC', 'gold'); }
-    await wait(380);
+    await pace(380);
   }
-  await wait(500);
+  await pace(500);
   fan.classList.remove('pflash'); $$('.pon', fan).forEach(c => { c.classList.remove('pon'); c.querySelectorAll('.fx-badge').forEach(x => x.remove()); });
 }
 
@@ -322,9 +338,9 @@ async function startRound() {
   }
   renderAll();
   if (checkDeath()) return;
-  if (App.rules.turnLimit && S.round > App.rules.turnLimit) { endBattle(S.me.hp >= S.op.hp, '턴 제한 도달'); return; }
+  if (S.rules.turnLimit && S.round > S.rules.turnLimit) { endBattle(S.me.hp >= S.op.hp, '턴 제한 도달'); return; }
   Sfx.play('round'); BG.pulse(.6);
-  FX.banner(`ROUND ${S.round}`, S.round === 1 ? `${S.me.name} VS ${S.op.name}` : (App.rules.turnLimit ? `남은 턴 ${App.rules.turnLimit - S.round + 1}` : '다음 라운드'), S.round === 1 ? C.red : C.yellow, 'round');
+  FX.banner(`ROUND ${S.round}`, S.round === 1 ? `${S.me.name} VS ${S.op.name}` : (S.rules.turnLimit ? `남은 턴 ${S.rules.turnLimit - S.round + 1}` : '다음 라운드'), S.round === 1 ? C.red : C.yellow, 'round');
   ev(`<div class="ev-k"><b class="pix">01</b> 라운드 시작 <span class="ev-r num">ROUND ${S.round}</span></div>
     <h2>먼저 효과 카드 1장을 선택하세요.</h2>
     <p>덱에서 뽑은 효과 카드 3장 중 1장을 획득해 장착합니다. 장착 ${S.me.inv.length}/${slotsOf(S.me)} · 빈 슬롯 ${Math.max(0, slotsOf(S.me) - S.me.inv.length)}개 · 효과 덱 ${S.me.pool.length}장</p>
@@ -370,12 +386,12 @@ function openDraft() {
   };
   // 한 장씩 공개 : 영웅·전설은 공개 전에 등급 색으로 빛나며 떨림
   (async () => {
-    await wait(420);
+    await pace(420);
     const cs = $$('.dm-c', w);
     for (let i = 0; i < cs.length; i++) {
       if (!w.isConnected) return;
       const c = cs[i], e = EF[offer[i]], L = e.g === 'L', E = e.g === 'E';
-      if ((L || E) && !skip) { c.classList.add('charging'); Sfx.play('charge', L ? 1.4 : 1); await wait(L ? 950 : 600); c.classList.remove('charging'); }
+      if ((L || E) && !skip) { c.classList.add('charging'); Sfx.play('charge', L ? 1.4 : 1); await pace(L ? 950 : 600); c.classList.remove('charging'); }
       c.classList.remove('hid'); c.classList.add('rev');
       $('.dm-tag', c).textContent = '선택 가능';
       Sfx.play(L ? 'legendReveal' : E ? 'epicReveal' : 'flip');
@@ -383,7 +399,7 @@ function openDraft() {
       if (L) { FX.flash('#fff6c8', .55, 350); FX.ring(p.x, p.y, '#ffd23f', 440, 650, 12); FX.star(p.x, p.y, '#ffd23f', 320); burst(p.x, p.y, ['#ffd23f', '#fff6c8', '#fff'], 44, 230); FX.shake(.8); }
       else if (E) { FX.flash('#e7d2ff', .35, 280); FX.ring(p.x, p.y, '#b06bff', 330, 550, 10); burst(p.x, p.y, ['#b06bff', '#e7d2ff', '#fff'], 28, 170); }
       setTimeout(() => c.classList.add('done'), 200); setTimeout(() => c.classList.remove('rev'), 700);
-      await wait(skip ? 60 : L ? 650 : E ? 480 : 260);
+      await pace(skip ? 60 : L ? 650 : E ? 480 : 260);
     }
     revealing = false;
     const ok = $('#dmOk', w); if (ok) ok.disabled = false;
@@ -397,7 +413,7 @@ async function equip(id, srcEl) {
   if (card) { Sfx.play('coin'); setTimeout(() => { const p = FX.center(card); FX.ring(p.x, p.y, '#ffe08a', 240, 500, 8); burst(p.x, p.y, ['#ffe08a', '#fff'], 20, 120); }, 450); }
   if (card && r) { const t = App.rectOf(card); card.animate([{ transform: `translate(${r.x - t.x}px,${r.y - t.y}px) scale(1.1)`, opacity: .4 }, { transform: getComputedStyle(card).transform, opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.2,1.1,.4,1)' }); card.classList.add('new'); }
   addLog(`<b>획득</b> · ${EF[id].suit}${EF[id].rank} ${EF[id].name}`);
-  await wait(600); deal();
+  await pace(600); deal();
 }
 function openReplace(newId) {
   const ne = EF[newId]; let pi = -1;
@@ -420,11 +436,11 @@ function openReplace(newId) {
   $('#rpOk', w).onclick = async () => {
     if ($('#rpOk', w).disabled) return;
     $('#rpOk', w).disabled = true; $('#rpNo', w).disabled = true;
-    const old = S.me.inv[pi]; $$('.rp-c .ec', w)[pi].classList.add('discard'); await wait(380);
+    const old = S.me.inv[pi]; $$('.rp-c .ec', w)[pi].classList.add('discard'); await pace(380);
     S.me.inv[pi] = newId; delete S.me.cd[old]; S.me.pool = S.me.pool.filter(x => x !== newId);
     closeModal(); addLog(`<b>교체</b> · ${EF[old].name} → ${ne.name}`); renderFan(S.me);
     const c = $(`#fanMe .ec[data-id="${CSS.escape(newId)}"]`); c && c.classList.add('new');
-    await wait(400); deal();
+    await pace(400); deal();
   };
 }
 function oppDraft() {
@@ -494,7 +510,7 @@ async function doReroll() {
   S.busy = true;
   Sfx.play('reroll');
   idx.forEach(i => { const el = $$('#handMe .pc')[i]; if (!el) return; el.classList.add('flipout'); const p = FX.center(el); burst(p.x, p.y, ['#e6a33c', '#fff'], 8, 60); });
-  await wait(260);
+  await pace(260);
   S.busy = false; if (!live(tok)) return;
   const nw = drawCards(s, idx.length, s.hand); idx.forEach((i, k) => s.hand[i] = nw[k]);
   s.sel = s.sel.filter(i => !idx.includes(i)); s.rr = []; s.rerolls--; S.rrMode = false;
@@ -531,6 +547,40 @@ async function useActive(side, id) {
   try { await useActiveInner(side, id, tok); }
   finally { if (side.isMe && S) S.busy = false; }
 }
+/* 함정 카드 : 상대가 카드를 쓸 때 자동으로 반응 (패시브이므로 폭풍으로 봉인되면 반응하지 않음) */
+const who = s => s.isMe ? '나' : '상대';
+function trapFx(owner, tid, color = C.purple) {
+  const c = $(`${owner.isMe ? '#fanMe' : '#fanOp'} .ec[data-id="${CSS.escape(tid)}"]`), p = FX.center(c);
+  if (c) { c.classList.add('pon'); setTimeout(() => c.classList.remove('pon'), 700); }
+  FX.ring(p.x, p.y, color, 240, 500, 8); burst(p.x, p.y, [color, '#fff'], 18, 110); Sfx.play('shieldBreak');
+}
+function trapReact(side, oth, e, id, fx) {
+  const has = tid => passives(oth).some(p => p.id === tid);
+  const ohud = oth.isMe ? $('#hudMe') : $('#hudOp'), shud = side.isMe ? $('#hudMe') : $('#hudOp');
+  const disrupt = e.cat.includes('방해');
+  // 간파 (◆2) : 방해 카드를 10% 확률로 무효화
+  if (disrupt && has('◆2') && Math.random() < .10) {
+    side.mods = side.mods.filter(m => m.src !== id);
+    stat(oth, '◆2', 'uses', 1); trapFx(oth, '◆2'); popAt(ohud, '간파! 방해 무효', 'gold');
+    addLog(`${who(oth)} · <b>간파</b> 발동 → ${e.name} 무효`); return 'nullify';
+  }
+  // 마법 방패 (◆6) : 방해 카드를 50% 확률로 사용자에게도 적용 (반사)
+  if (disrupt && has('◆6') && Math.random() < .5) {
+    stat(oth, '◆6', 'uses', 1); trapFx(oth, '◆6', C.blue); popAt(ohud, `마법 방패! ${e.name} 반사`, 'gold');
+    if (fx.storm) { side.storm = Math.max(side.storm, fx.storm); renderFan(side); }
+    if (fx.confuse) oth.confuse = true;
+    const copy = { ...fx }; delete copy.storm; delete copy.confuse;
+    if (Object.keys(copy).length) oth.mods.push({ src: '◆6', label: `마법 방패(${e.name})`, fx: copy });
+    addLog(`${who(oth)} · <b>마법 방패</b> 발동 → ${e.name} 효과를 ${who(side)}에게도 적용`);
+  }
+  // 흐트러짐 (◆3) : 유틸 카드 사용 시 30% 확률로 사용자에게 지속 피해 1턴
+  if (e.cat.includes('유틸') && has('◆3') && Math.random() < .30) {
+    side.dots.push({ dmg: 3, turns: 1, src: '◆3' }); stat(oth, '◆3', 'uses', 1);
+    trapFx(oth, '◆3', C.red); popAt(shud, '흐트러짐! 지속 피해 3', 'opfx');
+    addLog(`${who(oth)} · <b>흐트러짐</b> 발동 → ${who(side)}에게 지속 피해 3 (1턴)`);
+  }
+  return null;
+}
 async function useActiveInner(side, id, tok) {
   const e = EF[id], oth = other(side);
   side.cd[id] = e.cd; side.usedOrder++;
@@ -543,14 +593,22 @@ async function useActiveInner(side, id, tok) {
   if (e.cat.includes('유틸') || e.cat.includes('방어')) side.utilUses++;
   if (!side.isMe) side.revealed.add(id);
   renderFan(side);
-  if (e.g === 'E' || e.g === 'L') { await FX.cutin(e, side.isMe); if (!live(tok)) return; }   // 필살기 컷인
+  if (e.g === 'E' || e.g === 'L') {   // 필살기 컷인 (같은 판에서 두 번째부터는 짧게)
+    const seen = S.seenCut.has(side.isMe + id); S.seenCut.add(side.isMe + id);
+    await FX.cutin(e, side.isMe, seen); if (!live(tok)) return;
+  }   // 필살기 컷인
   if (side.isMe) await flyCard($(`#fanMe .ec[data-id="${CSS.escape(id)}"]`), side.usedOrder);
   else {
     const c = $(`#fanOp .ec[data-id="${CSS.escape(id)}"]`);
     if (c) { c.classList.add('reveal'); popAt(c, `${e.name}!`, 'opfx'); const p = FX.center(c); FX.ring(p.x, p.y, catColor(e), 200, 500, 8); burst(p.x, p.y, [catColor(e), '#fff'], 16, 90); }
-    Sfx.play('activate'); await wait(500);
+    Sfx.play('activate'); await pace(500);
   }
   if (!live(tok)) return;
+  // 상대의 함정 카드(간파·마법 방패·흐트러짐) 반응
+  if (trapReact(side, oth, e, id, fx) === 'nullify') {
+    renderAll(); if (side.isMe) { S.busy = false; S.phase === 3 ? evPrep() : S.phase === 2 && evCompose(); }
+    return;
+  }
   const hud = side.isMe ? $('#hudMe') : $('#hudOp');
   if (fx.heal) { const v = Math.min(fx.heal, side.maxHp - side.hp); side.hp += v; stat(side, id, 'heal', v); popAt(hud, `+${v} HP`, 'heal'); FX.sparkle(hud, '#6fffa8', 22); Sfx.play('heal'); hud.classList.add('glow-heal'); setTimeout(() => hud.classList.remove('glow-heal'), 900); }
   if (fx.shield || fx.sturdy) {
@@ -585,10 +643,10 @@ function fatePick(i) {
 async function resolve() {
   if (!S || S.busy || S.ended || S.phase !== 3) return;
   const tok = S.alive, me = S.me, op = S.op;
-  S.busy = true; S.fateMode = false; S.rrMode = false; stopTimer();
+  S.busy = true; S.skip = false; S.fateMode = false; S.rrMode = false; stopTimer();
   S.phase = 4; renderAll();
   ev(`<div class="ev-k"><b class="pix">04</b> 쇼다운 대기</div><h2>상대의 제출을 기다리는 중<span class="blink">_</span></h2>`);
-  await wait(700); if (!live(tok)) return;
+  await pace(700); if (!live(tok)) return;
   for (const id of shuffle(op.inv.filter(id => EF[id].k === 'A' && !(op.cd[id] > 0)))) {
     if (!live(tok)) return;
     if (EF[id].fx.mirror && !op.lastUsed) continue;
@@ -607,9 +665,9 @@ async function resolve() {
   me.confused = op.confused = undefined;
   for (const f of [...$$('#ev .sd-side.op .sd-c'), ...$$('#ev .sd-side.me .sd-c')]) {
     if (!live(tok)) return; f.classList.add('open'); Sfx.play('flip');
-    const p = FX.center(f); burst(p.x, p.y, ['#fff', '#ffe08a'], 5, 40); await wait(120);
+    const p = FX.center(f); burst(p.x, p.y, ['#fff', '#ffe08a'], 5, 40); await pace(120);
   }
-  await wait(200); if (!live(tok)) return;
+  await pace(200); if (!live(tok)) return;
   const hf = HAND_FX[A.h.key];
   if (hf && hf[2] >= 1) {
     $$('#ev .sd-side.me .sd-c').forEach((c, k) => c.animate([{ translate: '0 0' }, { translate: '0 -16px' }, { translate: '0 0' }], { duration: 380, delay: k * 60, easing: 'cubic-bezier(.2,1.6,.4,1)' }));
@@ -622,7 +680,7 @@ async function resolve() {
   $$('#ev .sd-f').forEach(f => f.classList.add('show'));
   let sA = A.score, sB = B.score;
   const critA = A.crit && rnd(100) < A.crit, critB = B.crit && rnd(100) < B.crit;
-  await Promise.all([countScore($('#sdMe'), sA, 800), countScore($('#sdOp'), sB, 800)]);
+  await Promise.all([countScore($('#sdMe'), sA, 800 * fxSpeed()), countScore($('#sdOp'), sB, 800 * fxSpeed())]);
   for (const [crit, isMe] of [[critA, true], [critB, false]]) if (crit) {
     if (!live(tok)) return;
     Sfx.play('crit'); await FX.hitstop(120); FX.flash('#ffe08a', .5); FX.shake(.8);
@@ -631,9 +689,20 @@ async function resolve() {
     const el = isMe ? $('#sdMe') : $('#sdOp'); el.textContent = isMe ? sA : sB; const p = FX.center(el); FX.star(p.x, p.y, '#ffe08a', 220);
     await FX.banner('CRITICAL!', `${isMe ? '내' : '상대'} 점수 ×1.5 → ${isMe ? sA : sB}`, C.red, 'hot');
   }
-  await wait(250); if (!live(tok)) return;
-  const win = sA > sB ? me : sB > sA ? op : null, lose = win ? other(win) : null, diff = Math.abs(sA - sB);
-  if (App.battleOpt.forecast) await forecast(sA, sB, A, B, win, diff);
+  await pace(250); if (!live(tok)) return;
+  // 점수가 같으면 족보 숫자·키커로 승부 (완전히 같을 때만 무승부)
+  let win = sA > sB ? me : sB > sA ? op : null, kicker = null;
+  if (!win) {
+    const k = cmpHand(A.h, B.h);
+    if (k) {
+      win = k > 0 ? me : op;
+      const a = win === me ? A.h.rank : B.h.rank, b = win === me ? B.h.rank : A.h.rank;
+      let i = 1; while (i < a.length && a[i] === b[i]) i++;
+      kicker = `${i === 1 ? '높은 숫자' : '키커'} ${pvName(a[i])} > ${pvName(b[i])}`;
+    }
+  }
+  const lose = win ? other(win) : null, diff = kicker ? KICKER_DMG : Math.abs(sA - sB);
+  if (App.battleOpt.forecast && !S.skip) await forecast(sA, sB, A, B, win, diff, kicker);
   if (!live(tok)) return;
   const box = $('#ev');
   // 점수 충돌 연출
@@ -650,22 +719,24 @@ async function resolve() {
     else { eMe.classList.add('sd-lose'); eOp.classList.add('sd-lose'); }
   }
   if (!live(tok)) return;
-  box.classList.add('clash'); await wait(420); if (!live(tok)) return;
+  box.classList.add('clash'); await pace(420); if (!live(tok)) return;
   if (!win) { popAt($('#ev'), '무승부 — 피해 없음', 'tie'); addLog('무승부 · 피해 없음'); FX.banner('DRAW', '점수가 같아 피해 없음', C.gray); }
   else {
     const wm = win.mods, pierce = wm.some(m => m.fx.pierce), brk = wm.reduce((a, m) => a + (m.fx.breakS || 0), 0);
+    if (kicker) { await FX.banner('KICKER!', `점수 동점 · ${kicker} → 고정 피해 ${KICKER_DMG}`, C.blue); if (!live(tok)) return; }
     const from = FX.center(win.isMe ? eMe : eOp), to = FX.center(lose.isMe ? $('#hudMe') : $('#hudOp'));
     await FX.beam(from, to, win.isMe ? '#8db8ff' : '#ff9a84');
     if (!live(tok)) return;
     const dealt = applyDamage(lose, diff, { pierce, brk, big: true });
-    attribute(win, win === me ? A : B, dealt);
-    addLog(`${win.isMe ? '내' : '상대'} 승리 · ${Math.max(sA, sB)} - ${Math.min(sA, sB)} = <b class="r">${diff}</b> → ${lose.isMe ? '나' : '상대'} HP -${dealt}`);
-    await wait(dealt / lose.maxHp >= .2 ? 420 : 200); if (!live(tok)) return;
+    attribute(win, win === me ? A : B, dealt, kicker);
+    addLog(kicker ? `${win.isMe ? '내' : '상대'} 키커 승리 · ${kicker} → ${lose.isMe ? '나' : '상대'} HP -${dealt}`
+      : `${win.isMe ? '내' : '상대'} 승리 · ${Math.max(sA, sB)} - ${Math.min(sA, sB)} = <b class="r">${diff}</b> → ${lose.isMe ? '나' : '상대'} HP -${dealt}`);
+    await pace(dealt / lose.maxHp >= .2 ? 420 : 200); if (!live(tok)) return;
     if (dealt / lose.maxHp >= .2) await FX.banner(dealt / lose.maxHp >= .35 ? 'DEVASTATING!' : 'BIG HIT!', `${dealt} 피해`, C.red, 'hot');
-    await wait(650); if (!live(tok)) return;
+    await pace(650); if (!live(tok)) return;
     if (dealt > 0) {
-      const ch = wm.find(m => m.fx.chain); if (ch) { const d2 = applyDamage(lose, Math.floor(dealt * ch.fx.chain), { pierce: true, label: '연격' }); stat(win, ch.src, 'dmg', d2); addLog(`<b>연격</b> 추가 피해 ${d2}`); await wait(550); if (!live(tok)) return; }
-      const ag = wm.find(m => m.fx.again); if (ag) { const d3 = applyDamage(lose, diff, { pierce, label: '찬스 스텝' }); stat(win, ag.src, 'dmg', d3); addLog(`<b>찬스 스텝</b> 재결산 ${d3}`); await wait(550); if (!live(tok)) return; }
+      const ch = wm.find(m => m.fx.chain); if (ch) { const d2 = applyDamage(lose, Math.floor(dealt * ch.fx.chain), { pierce: true, label: '연격' }); stat(win, ch.src, 'dmg', d2); addLog(`<b>연격</b> 추가 피해 ${d2}`); await pace(550); if (!live(tok)) return; }
+      const ag = wm.find(m => m.fx.again); if (ag) { const d3 = applyDamage(lose, diff, { pierce, label: '찬스 스텝' }); stat(win, ag.src, 'dmg', d3); addLog(`<b>찬스 스텝</b> 재결산 ${d3}`); await pace(550); if (!live(tok)) return; }
       const dt = wm.find(m => m.fx.dot); if (dt) { lose.dots.push({ dmg: dt.fx.dot, turns: 2, src: dt.src }); addLog(`<b>열상</b> · 지속 피해 ${dt.fx.dot} (2턴)`); }
     } else if (wm.some(m => m.fx.again)) addLog('찬스 스텝 불발');
     const cnt = lose.mods.find(m => m.fx.counter); if (cnt && lose._lastTaken === 0) { lose.counter = cnt.fx.counter; addLog(`<b>반격</b> 준비 · 다음 턴 +${cnt.fx.counter}`); }
@@ -677,11 +748,11 @@ async function resolve() {
   }
   box.classList.remove('clash'); renderAll();
   if (checkDeath()) return;
-  if (App.rules.turnLimit && S.round >= App.rules.turnLimit) { await wait(700); if (live(tok)) endBattle(me.hp >= op.hp, '턴 제한 도달'); return; }
-  await wait(500); if (!live(tok)) return;
-  S.busy = false;
+  if (S.rules.turnLimit && S.round >= S.rules.turnLimit) { await pace(700); if (live(tok)) endBattle(me.hp >= op.hp, '턴 제한 도달'); return; }
+  await pace(500); if (!live(tok)) return;
+  S.busy = false; S.skip = false;
   ev(`<div class="ev-k"><b class="pix">04</b> 피해 정산 결과 <span class="ev-r num">ROUND ${S.round}</span></div>
-    <div class="ev-2"><div><h2>${!win ? '무승부' : win.isMe ? '공격 성공!' : '피해를 받았습니다'}</h2><p>내 점수 <b>${sA}</b> · 상대 점수 <b>${sB}</b> · 차이 <b class="r">${diff}</b></p></div>
+    <div class="ev-2"><div><h2>${!win ? '무승부' : win.isMe ? (kicker ? '키커 승리!' : '공격 성공!') : '피해를 받았습니다'}</h2><p>내 점수 <b>${sA}</b> · 상대 점수 <b>${sB}</b> · ${kicker ? `동점 → ${kicker}` : `차이 <b class="r">${diff}</b>`}</p></div>
       <div class="ev-hp"><div><span>나</span><b class="num">${me.hp}</b></div><div><span>상대</span><b class="num">${op.hp}</b></div></div></div>
     <div class="ev-row"><span class="mut">생존 시 다음 라운드 · 쿨타임 -1 · 실드 소멸</span>${evBtn('다음 라운드 →', 'next', true)}</div>`);
   $('#ev [data-a=next]').onclick = startRound;
@@ -719,15 +790,19 @@ function applyDamage(t, dmg, o = {}) {
   }
   renderHUD(t); return dmg;
 }
-function attribute(win, Cc, dealt) {
-  const raw = (Cc.base + Cc.bonus) * Cc.mult; if (!dealt || !raw) return;
-  Cc.parts.forEach(p => {
+/* 이번 공격의 피해를 기여원에 나눠 기록 : 효과 카드 몫 + 나머지는 '포커 족보 공격'(POKER) */
+function attribute(win, Cc, dealt, kicker) {
+  if (!dealt) return;
+  const raw = (Cc.base + Cc.bonus) * Cc.mult; let given = 0;
+  if (raw && !kicker) Cc.parts.forEach(p => {
     if (!p.src) return;
     const contrib = p.t === 'b' ? p.v * Cc.mult : (Cc.base + Cc.bonus) * Cc.mult * (1 - 1 / p.v), v = Math.round(dealt * contrib / raw);
-    if (v > 0) { stat(win, p.src, 'dmg', v); if (p.pas) stat(win, p.src, 'uses', 1); }
+    if (v > 0) { stat(win, p.src, 'dmg', v); given += v; if (p.pas) stat(win, p.src, 'uses', 1); }
   });
+  const poker = dealt - given;
+  if (poker > 0) { stat(win, 'POKER', 'dmg', poker); stat(win, 'POKER', 'uses', 1); }
 }
-function forecast(sA, sB, A, B, win, diff) {
+function forecast(sA, sB, A, B, win, diff, kicker) {
   return new Promise(res => {
     const col = (s, sc, Cc) => `<div class="fc-col ${s.isMe ? 'me' : 'op'}"><div class="fc-n">${s.isMe ? '나' : s.name}</div>
       <div class="fc-r"><span>족보</span><b>${Cc.h.name}</b></div><div class="fc-r"><span>최종 점수</span><b class="big num">${sc}</b></div>
@@ -735,7 +810,7 @@ function forecast(sA, sB, A, B, win, diff) {
       <div class="fc-r"><span>감면</span><b class="num">${Math.min(80, s.mods.reduce((a, m) => a + (m.fx.reduce || 0), 0))}%${s.immune ? ' · 무적' : ''}</b></div>
       <div class="fc-r hl"><span>예상 받는 피해</span><b class="num">${win && win !== s ? diff : 0}</b></div></div>`;
     const w = modal(`<div class="fc"><div class="fc-h pix">BATTLE FORECAST <small>전투 예측 · 공격 전 예상 결과</small></div>
-      <div class="fc-b">${col(S.me, sA, A)}<div class="fc-mid"><b class="num">${diff}</b><span>점수 차</span><em>${!win ? '무승부' : win.isMe ? '→ 상대에게' : '← 나에게'}</em></div>${col(S.op, sB, B)}</div>
+      <div class="fc-b">${col(S.me, sA, A)}<div class="fc-mid"><b class="num">${diff}</b><span>${kicker ? `동점 · ${kicker}` : "점수 차"}</span><em>${!win ? '무승부' : win.isMe ? '→ 상대에게' : '← 나에게'}</em></div>${col(S.op, sB, B)}</div>
       <div class="fc-f"><span class="mut">실드·감면·추가 효과는 정산 때 적용됩니다</span>${btn('정산 개시', 'GO', C.red, 'id="fcGo"', 'pri')}</div></div>`, { cls: 'm-game lock', backdrop: false, onClose: res });
     Sfx.play('whoosh');
     $('#fcGo', w).onclick = () => closeModal();
@@ -754,7 +829,8 @@ function checkDeath() {
 function battleMenu() {
   const w = settingsModal();
   const f = $('.setm-f', w);
-  f.innerHTML = btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
+  f.innerHTML = btn('게임 방법', '', C.yellow, 'id="bmGuide"') + btn('항복하기', '', C.gray, 'id="bmSur"') + btn('로비로 나가기', '', C.gray, 'id="bmOut"') + btn('계속하기', '', C.blue, 'id="stX"');
+  $('#bmGuide', w).onclick = () => guideModal();
   $('#stX', w).onclick = () => closeModal();
   $('#bmSur', w).onclick = () => { closeModal(true); S.me.hp = 0; renderHUD(S.me); endBattle(false, '항복'); };
   $('#bmOut', w).onclick = () => { closeModal(true); stopTimer(); S.alive = null; S.ended = true; App.go('home'); };
@@ -777,15 +853,19 @@ function endBattle(win, why) {
 }
 function buildResult(win) {
   const pack = s => {
-    const cards = Object.entries(s.stats).map(([id, st]) => ({ id, ...st })).filter(c => c.uses || c.dmg || c.shield || c.heal);
-    s.inv.forEach(id => { if (!cards.find(c => c.id === id)) cards.push({ id, uses: 0, dmg: 0, shield: 0, heal: 0, rounds: {} }); });
-    cards.sort((a, b) => b.dmg - a.dmg || b.uses - a.uses);
+    const all = Object.entries(s.stats).map(([id, st]) => ({ id, ...st })).filter(c => c.uses || c.dmg || c.shield || c.heal);
+    s.inv.forEach(id => { if (!all.find(c => c.id === id)) all.push({ id, uses: 0, dmg: 0, shield: 0, heal: 0, rounds: {} }); });
+    const poker = all.find(c => c.id === 'POKER'), cards = all.filter(c => c.id !== 'POKER');
     const last = S.round;
-    let mvp = cards.slice().sort((a, b) => ((b.rounds[last] || {}).dmg || 0) - ((a.rounds[last] || {}).dmg || 0))[0];
-    if (!mvp || !((mvp.rounds[last] || {}).dmg)) mvp = cards[0];
-    return { name: s.name, cards: cards.slice(0, 6), mvp: mvp && mvp.id, mvpName: mvp ? EF[mvp.id].name : '-', total: cards.reduce((a, c) => a + c.dmg, 0) };
+    // MVP 점수 : 결정적(마지막) 라운드 기여 ×2 + 누적 피해 + 지켜낸 양 ×0.8 + 사용 횟수 ×2
+    const mvpScore = c => ((c.rounds[last] || {}).dmg || 0) * 2 + c.dmg + (c.shield + c.heal) * .8 + c.uses * 2;
+    cards.sort((a, b) => mvpScore(b) - mvpScore(a) || b.dmg - a.dmg);
+    const mvp = cards[0];
+    const total = all.reduce((a, c) => a + c.dmg, 0), cardDmg = cards.reduce((a, c) => a + c.dmg, 0);
+    const shown = cards.slice(0, 6); if (poker) shown.push(poker);
+    return { name: s.name, cards: shown, mvp: mvp && mvp.id, mvpName: mvp ? EF[mvp.id].name : '-', total, cardDmg, cardPct: total ? Math.round(cardDmg / total * 100) : 0 };
   };
-  return { win, rounds: S.round, myHP: Math.max(0, S.me.hp), opHP: Math.max(0, S.op.hp), me: pack(S.me), op: pack(S.op), mode: S.mode, oppName: S.op.name, sample: false };
+  return { win, rounds: S.round, myHP: Math.max(0, S.me.hp), opHP: Math.max(0, S.op.hp), me: pack(S.me), op: pack(S.op), mode: S.mode, rules: { ...S.rules }, oppName: S.op.name, sample: false };
 }
 function sampleResult() {
   const c = (id, uses, dmg, shield, heal, rounds = {}) => ({ id, uses, dmg, shield, heal, rounds });

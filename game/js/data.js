@@ -60,11 +60,11 @@ const RAW = `
 ♣Q|화신|L|P|강화|0|공격 적중/실패 시 상대에게 지속 피해 2 (2턴)|avatar:2
 ♣K|계략|R|P|강화|0|방해 카드 3장 이상 시 방해 액티브 쿨타임 -1|scheme:1
 ◆A|조커|L|P|와일드|0|보유 시 매 턴 리롤 +1 (특성 제외로 임시 대체한 효과)|reroll:1
-◆2|간파|C|P|함정|0|상대 방해 발동 시 10% 확률로 무효화|
-◆3|흐트러짐|C|P|함정|0|상대 유틸 사용 시 30% 확률로 지속 피해 1턴|
+◆2|간파|C|P|함정|0|상대 방해 발동 시 10% 확률로 무효화|trap:1
+◆3|흐트러짐|C|P|함정|0|상대 유틸 사용 시 30% 확률로 지속 피해 3 (1턴)|trap:1
 ◆4|방패 파괴자|R|P|함정|0|상대가 실드 보유 시 최종 피해 +3|shieldBreaker:3
 ◆5|전염|R|P|함정|0|내가 지속 피해 중이면 상대에게도 1턴 적용|contagion:1
-◆6|마법 방패|E|P|함정|0|상대 방해 발동 시 50% 확률로 상대에게도 적용|
+◆6|마법 방패|E|P|함정|0|상대 방해 발동 시 50% 확률로 상대에게도 적용|trap:1
 ◆7|역각성|L|P|함정|0|상대가 유틸/방어 카드를 쓸 때마다 최종 피해 +2|awaken:2
 ◆8|혼란|E|A|방해|4|상대의 무작위 포커 카드 1장을 강제로 교체|confuse:1
 ◆9|재정비|R|A|유틸|2|쿨타임 중인 액티브 1장의 쿨타임 -1|refit:1
@@ -80,6 +80,9 @@ const EFFECTS = RAW.trim().split('\n').map(line => {
   return { id, suit: id[0], rank: id.slice(1), name, g, k, cat, cd: +cd, desc, fx };
 });
 const EF = Object.fromEntries(EFFECTS.map(e => [e.id, e]));
+
+/* ---------- 대전 규칙 : 무작위·AI 대전은 항상 기본값, 친구 대전만 방 규칙 사용 ---------- */
+const DEFAULT_RULES = Object.freeze({ turnLimit: 0, turnTime: 60, startHP: 100 });
 
 /* ---------- 덱 규칙 ---------- */
 const DECK_MAX = 26, EPIC_MAX = 6, LEG_MAX = 2;

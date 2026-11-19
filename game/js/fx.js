@@ -2,7 +2,10 @@
 /* =========================================================
    FX – 효과음(WebAudio 합성) · 타격감 · 배너 · 파티클 · 배경
    ========================================================= */
-const FXOPT = Object.assign({ shake: 'normal' }, store.get('fxOpt', {}));
+const FXOPT = Object.assign({ shake: 'normal', speed: 'normal' }, store.get('fxOpt', {}));
+// 연출 속도 배율 : 건너뛰기 중이면 거의 0, '빠르게'면 절반
+const fxSpeed = () => (typeof S !== 'undefined' && S && S.skip) ? .08 : FXOPT.speed === 'fast' ? .5 : 1;
+const pace = ms => wait(ms * fxSpeed());
 const saveFxOpt = () => store.set('fxOpt', FXOPT);
 
 /* ---------- 시각 효과 ---------- */
@@ -34,13 +37,13 @@ const FX = {
   banner(text, sub = '', color = '#e6a33c', cls = '') {
     Sfx.play('banner');
     const d = this.add('fx-banner ' + cls, `--c:${color}`, `<div class="fb-band"></div><div class="fb-t pix">${text.split('').map((c, i) => `<span style="--i:${i}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</div>${sub ? `<div class="fb-s">${sub}</div>` : ''}`, 1500);
-    return wait(1050);
+    return pace(1050);
   },
   beam(from, to, color = '#ffe08a') {
     const dx = to.x - from.x, dy = to.y - from.y, len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
     const d = this.add('fx-beam', `left:${from.x}px;top:${from.y}px;width:${len}px;--c:${color};transform:rotate(${ang}deg)`, '', 500);
     d.animate([{ clipPath: 'inset(0 100% 0 0)', opacity: 1 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .45 }, { clipPath: 'inset(0 0 0 100%)', opacity: .2 }], { duration: 420, easing: 'ease-in', fill: 'forwards' });
-    return wait(190);
+    return pace(190);
   },
   chunks(bar, fromPct, toPct, color = '#3dff95') {
     if (!bar || fromPct <= toPct) return;
@@ -80,15 +83,15 @@ const FX = {
   textAt(x, y, html, cls = '') { this.add('pop ' + cls, `left:${x}px;top:${y}px`, html, 1500); },
   rarColor(g) { return g === 'L' ? '#ffd23f' : g === 'E' ? '#b06bff' : '#ffffff'; },
   /* 필살기 컷인 : 영웅·전설 카드를 사용할 때 */
-  async cutin(e, isMe = true) {
-    const L = e.g === 'L', dur = L ? 1700 : 1250;
+  async cutin(e, isMe = true, short = false) {
+    const L = e.g === 'L', dur = short ? 700 : L ? 1700 : 1250;
     Sfx.play(L ? 'legendCut' : 'epicCut'); Music.duck(L ? 2.2 : 1.4); BG.pulse(1.5);
     const cls = 'fx-cutin ' + (isMe ? (L ? 'leg' : 'epi') : 'rival');
     this.add(cls, `--dur:${dur}ms`, `<div class="ci-dim"></div><div class="ci-rays"></div><div class="ci-band"><div class="ci-card">${cardHTML(e)}</div>
       <div class="ci-txt"><small class="pix">${isMe ? (L ? '★ LEGENDARY SKILL' : '◆ EPIC SKILL') : (L ? '★ RIVAL LEGENDARY' : '◆ RIVAL EPIC')}</small><b>${e.name}</b><em>${e.desc}</em></div></div>`, dur + 100);
     setTimeout(() => { this.flash(L ? '#fff6c8' : '#e7d2ff', L ? .6 : .4, 300); this.shake(L ? 1.3 : .8); }, dur * .16);
     if (L) setTimeout(() => { this.ring(720, 405, '#ffd23f', 900, 700, 16); burst(720, 405, ['#ffd23f', '#fff', '#ff5a3c'], 50, 420); }, dur * .2);
-    await wait(dur * .88);
+    await pace(dur * .88);
   },
   /* 영웅·전설 카드 획득 축하 */
   async rarityGet(e) {
@@ -101,7 +104,7 @@ const FX = {
     burst(720, 405, L ? ['#ffd23f', '#fff6c8', '#fff', '#ff5a3c'] : ['#b06bff', '#e7d2ff', '#fff'], L ? 90 : 50, 460);
     if (L) { this.confetti(200); setTimeout(() => this.confetti(100), 700); }
     this.banner(L ? 'LEGENDARY!' : 'EPIC!', `${e.suit}${e.rank} ${e.name} 획득`, L ? '#e6a33c' : '#7d4cc4', L ? 'rainbow' : '');
-    await wait(1650);
+    await pace(1650);
   },
 };
 

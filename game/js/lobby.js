@@ -23,6 +23,7 @@ function homeHTML() {
       <div class="duel"><div class="duel-t">DUEL</div><div class="duel-s"><b>1VS1 듀얼</b><span>HP를 먼저 0으로</span></div>
         <div class="duel-b">${btn('무작위 상대', 'RANDOM', C.red, 'data-go="match"', 'big')}${btn('친구와 경기', 'FRIEND', C.blue, 'data-go="friend"', 'big')}</div></div>
       <button class="row-btn" data-go="practice" style="--c:${C.green}"><div><small>SOLO · VS AI</small><b>연습 듀얼</b></div><span class="row-tag">${DIFFS[App.diff].ko}</span><em>▶</em></button>
+      <button class="row-btn" id="guideBtn" style="--c:${C.yellow}"><div><small>HOW TO PLAY</small><b>게임 방법</b></div><span class="row-tag">처음이라면</span><em>?</em></button>
       <button class="row-btn" data-go="history" style="--c:${C.gray}"><div><small>최근 기록</small><b>${last ? `${last.win ? '승리' : '패배'} · ${last.rounds}라운드 · MVP ${last.mvp}` : '기록 없음'}</b></div><div class="sq">${App.history.slice(0, 10).map(h => `<i class="${h.win ? 'w' : 'l'}"></i>`).join('')}</div></button>
     </div>
     <div class="home-fan">${[['A', '♠'], ['7', '♥'], ['Q', '♠'], ['9', '◆'], ['7', '♣']].map(([r, s], i) => `<div class="fpc ${isRed(s) ? 'red' : ''}" style="--i:${i};--r:${(i - 2) * 10}deg;--x:${(i - 2) * 30}px"><b>${s}${r}</b></div>`).join('')}</div>
@@ -41,6 +42,8 @@ Screens.home = {
   tab: 'home', title: '', html: homeHTML,
   bind(el) {
     goBtns(el); bindTilt(el); bindTilt3D(el, '.minis .mc,.fpc', 20);
+    $('#guideBtn', el).onclick = () => guideModal();
+    if (!store.get('guideSeen', false)) App.after(() => guideModal(), 700);
     $$('.fpc', el).forEach(c => c.onclick = () => { Sfx.play('flip'); const p = FX.center(c); burst(p.x, p.y, ['#fff', C.red, C.yellow], 14, 90); c.animate([{ rotate: '0 1 0 0deg' }, { rotate: '0 1 0 360deg' }], { duration: 500, easing: 'cubic-bezier(.2,1.2,.4,1)' }); });
     $('#ace', el).addEventListener('click', () => { Sfx.play('passive'); const p = FX.center($('#ace', el)); FX.ring(p.x, p.y, C.yellow, 420, 600, 10); burst(p.x, p.y, ['#ffe08a', '#fff'], 30, 200); });
   },
@@ -56,6 +59,7 @@ Screens.match = {
     <div class="mm-time"><b id="mmTime" class="num">00:00</b><span>예상 대기 00:10</span></div>
     <div class="mm-deck"><small>사용 덱</small><b>${deckSummary(App.myDeck)} · ${App.myDeck.length}장</b><span>영웅 ${deckInfo(App.myDeck).E}/6 · 전설 ${deckInfo(App.myDeck).L}/2</span></div>
     <div class="mm-tip"><small>TIP</small><span id="mmTip">${TIPS[0]}</span></div>
+    <div class="ai-note">ⓘ 온라인 대전은 준비 중입니다 · 현재는 AI가 상대합니다</div>
     <div class="mm-f" id="mmF">${btn('취소', '', C.gray, 'id="mmX"')}</div></div></div>`,
   bind(el) {
     goBtns(el); bindTilt(el);
@@ -91,7 +95,7 @@ Screens.friend = {
     const FR = [['은빛딜러', 'on', '로비'], ['HeartGuard', 'on', '덱 편집 중'], ['Joker_77', 'game', '대전 중 · R5'], ['ClubKing', 'off', '3시간 전'], ['룬마스터', 'off', '어제']];
     const R = App.rules;
     const tabs = {
-      make: () => `<h2>방 만들기</h2><p class="mut">규칙을 정하고 초대 코드를 공유하세요. 게임이 길어지지 않게 하려면 턴 제한을 켜세요.</p>
+      make: () => `<h2>방 만들기</h2><p class="mut">규칙을 정하고 초대 코드를 공유하세요. 게임이 길어지지 않게 하려면 턴 제한을 켜세요.</p><div class="ai-note">ⓘ 온라인 대전은 준비 중입니다 · 지금은 친구 대신 AI가 입장해 대결합니다 (방 규칙은 그대로 적용)</div>
         <div class="form">
           <div class="frow"><div><b>방 이름</b><small>친구 목록에 표시됩니다</small></div><input class="inp" value="${App.player.name}의 테이블" maxlength="16"></div>
           <div class="frow"><div><b>턴 제한</b><small>제한 턴에 도달하면 HP가 높은 쪽이 승리</small></div>${sw('lim', R.turnLimit > 0)}</div>
@@ -124,7 +128,7 @@ Screens.friend = {
         App.after(() => {
           const s = $('#seat', fp); if (!s) return; const fr = FR[0][0];
           s.classList.add('in'); s.innerHTML = `<span class="av2">${fr[0]}</span><b>${fr}</b><small>입장 · 준비 완료</small>`;
-          const b = $('#start', fp); b.disabled = false; b.classList.add('ready'); b.onclick = () => App.startBattle({ mode: '친구', opp: fr });
+          const b = $('#start', fp); b.disabled = false; b.classList.add('ready'); b.onclick = () => App.startBattle({ mode: '친구', opp: fr, rules: { ...App.rules } });
           toast(`${fr} 님이 입장했습니다`, 'ok');
         }, 3000);
       };
@@ -134,10 +138,10 @@ Screens.friend = {
         inp.onkeydown = e => { if (e.key === 'Backspace' && !inp.value && ins[i - 1]) ins[i - 1].focus(); };
       });
       if (ins[0]) setTimeout(() => ins[0].focus(), 50);
-      const jn = $('#join', fp); if (jn) jn.onclick = () => { toast('RD-' + ins.map(x => x.value).join('') + ' 방에 입장합니다', 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: '친구' }), 700); };
+      const jn = $('#join', fp); if (jn) jn.onclick = () => { toast('RD-' + ins.map(x => x.value).join('') + ' 방에 입장합니다', 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: '친구', rules: { ...App.rules } }), 700); };
       $$('.fi .btn[data-i]', fp).forEach(b => b.onclick = () => {
         b.querySelector('b').textContent = '초대 보냄'; b.disabled = true; const n = FR[+b.dataset.i][0];
-        App.after(() => { toast(`${n} 님이 초대를 수락했습니다`, 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: n }), 800); }, 1800);
+        App.after(() => { toast(`${n} 님이 초대를 수락했습니다`, 'ok'); App.after(() => App.startBattle({ mode: '친구', opp: n, rules: { ...App.rules } }), 800); }, 1800);
       });
     };
     $$('#vt button[data-t]', el).forEach((b, i) => b.onclick = () => { $$('#vt button[data-t]', el).forEach(x => x.classList.toggle('on', x === b)); $('.vt-ind', el).style.transform = `translateY(${i * 100}%)`; render(b.dataset.t); });
@@ -161,7 +165,7 @@ Screens.practice = {
       $$('#dots i', el).forEach((d, i) => d.classList.toggle('on', i === cur));
       const d = DIFFS[DKEYS[cur]];
       $('#shc', el).innerHTML = `<div class="sh-l"><small style="color:${d.color}">난이도 · ${d.ko}</small><h3>${d.who}</h3><p>${d.desc}</p></div>
-        <div class="sh-m"><div><small>덱 성향</small><b>${d.style}</b></div><div><small>난이도</small><b style="color:${d.color}">${'★'.repeat(d.stars)}${'☆'.repeat(3 - d.stars)}</b></div><div><small>규칙</small><b>HP ${App.rules.startHP}</b></div></div>
+        <div class="sh-m"><div><small>덱 성향</small><b>${d.style}</b></div><div><small>난이도</small><b style="color:${d.color}">${'★'.repeat(d.stars)}${'☆'.repeat(3 - d.stars)}</b></div><div><small>규칙</small><b>HP ${DEFAULT_RULES.startHP}</b></div></div>
         ${btn('연습 시작', 'PLAY', C.red, 'id="pgo"', 'big')}`;
       $('#pgo', el).onclick = () => { App.diff = d.key; store.set('diff', d.key); App.after(() => App.startBattle({ mode: '연습', opp: `AI · ${d.ko}` }), 150); };
     };
@@ -283,3 +287,36 @@ Screens.history = {
     render('전체');
   },
 };
+
+/* ---------- 게임 방법 (첫 실행 시 자동 표시) ---------- */
+const GUIDE = [
+  { t: '목표와 흐름', h: () => `<p class="gd-lead">1 대 1로 겨뤄 <b>상대의 HP를 먼저 0</b>으로 만들면 승리합니다. 한 라운드는 4단계로 진행되고, 승부가 날 때까지 반복합니다.</p>
+    <div class="gd-steps">${[['01', '드래프트', '효과 덱에서 3장을 뽑아 1장을 장착'], ['02', '전투 패 구성', '포커 카드 7장 중 5장으로 족보 만들기'], ['03', '쇼다운 준비', '액티브 효과 카드를 써서 점수를 올리거나 방어'], ['04', '피해 정산', '점수 차이만큼 낮은 쪽의 HP가 감소']].map(([n, a, b]) => `<div><b class="pix">${n}</b><strong>${a}</strong><span>${b}</span></div>`).join('')}</div>` },
+  { t: '족보와 점수', h: () => `<p class="gd-lead">공격 점수는 고른 5장의 <b>포커 족보</b>로 정해집니다. 리롤로 마음에 들지 않는 카드를 바꿀 수 있습니다 (기본 1회).</p>
+    <div class="gd-hands">${Object.entries(HANDS).filter(([k]) => k !== 'none').reverse().map(([, [n, b]]) => `<div><span>${n}</span><b class="num">${b}</b></div>`).join('')}</div>
+    <p class="mut">점수가 같으면 더 높은 숫자(예: A 원 페어 &gt; 9 원 페어)나 키커로 승부하고, 이긴 쪽이 고정 피해 ${KICKER_DMG}을 줍니다. 패가 완전히 같을 때만 무승부입니다.</p>` },
+  { t: '피해 계산', h: () => `<div class="gd-fml"><span>(족보 점수 + 보너스) × 배율</span><b>=</b><span>최종 점수</span></div>
+    <p class="gd-lead">양쪽 최종 점수의 <b>차이만큼</b> 낮은 쪽의 HP가 줄어듭니다. 예) 내 점수 (25 + 3) × 2 = 56, 상대 30 → 상대 HP <b>-26</b></p>
+    <ul class="gd-list"><li><b>실드</b> — 피해를 먼저 막아 주고, 다음 라운드 시작 때 사라집니다</li><li><b>감면</b> — 받는 피해를 % 만큼 줄입니다</li><li><b>치명타</b> — 확률적으로 내 점수 ×1.5</li><li><b>지속 피해</b> — 라운드 시작마다 HP 감소</li></ul>` },
+  { t: '효과 카드', h: () => `<ul class="gd-list"><li><b>액티브</b> — 02·03 단계에 직접 눌러 사용. 쓰면 쿨타임이 생기고 상대에게 공개됩니다</li><li><b>패시브</b> — 장착만 하면 자동 적용. 항상 공개 상태입니다</li><li><b>함정</b> — 상대가 특정 카드를 쓸 때 확률로 반응합니다 (간파·흐트러짐·마법 방패 등)</li></ul>
+    <div class="gd-grades"><span class="c">일반</span><span class="r">희귀</span><span class="e">◆ 영웅</span><span class="l">★ 전설</span></div>
+    <p class="mut">덱은 52장 중 26장으로 구성하며 영웅은 최대 6장, 전설은 최대 2장입니다. 전투 중 장착 칸은 5칸(짐꾼 보유 시 +2)이고, 가득 차면 기존 카드와 교체합니다.</p>` },
+  { t: '조작과 팁', h: () => `<div class="gd-keys">${[['1 ~ 7', '전투 패 선택'], ['Enter', '다음 단계 진행'], ['Space · 클릭', '피해 정산 연출 건너뛰기'], ['Esc', '메뉴 / 창 닫기']].map(([k, d]) => `<div><kbd>${k}</kbd><span>${d}</span></div>`).join('')}</div>
+    <ul class="gd-list"><li>설정에서 <b>연출 속도</b>, <b>효과음·배경음악 볼륨</b>, 화면 흔들림을 바꿀 수 있습니다</li><li>심판(최종 데미지 ×2)처럼 강한 카드는 크게 이길 라운드에 아껴 두세요</li><li>HP가 30% 이하로 떨어지면 경보가 울립니다 — 실드·회복 카드를 활용하세요</li><li>무작위·친구 대전은 아직 온라인이 아니라 AI가 상대합니다</li></ul>` },
+];
+function guideModal(start = 0) {
+  let p = start;
+  const w = modal(`<div class="guide"><div class="gd-h"><span class="pix">HOW TO PLAY</span><h3 id="gdT"></h3><span class="num" id="gdN"></span></div><div class="gd-b" id="gdB"></div>
+    <div class="gd-f"><div class="gd-dots" id="gdD">${GUIDE.map((_, i) => `<i data-i="${i}"></i>`).join('')}</div><div class="row">${btn('이전', '', C.gray, 'id="gdPrev"')}${btn('다음', '', C.red, 'id="gdNext"', 'pri')}</div></div></div>`, { cls: 'm-guide' });
+  const show = () => {
+    $('#gdT', w).textContent = GUIDE[p].t; $('#gdN', w).textContent = `${p + 1} / ${GUIDE.length}`;
+    const b = $('#gdB', w); b.innerHTML = GUIDE[p].h(); b.animate([{ opacity: 0, transform: 'translateX(20px)' }, { opacity: 1, transform: 'none' }], { duration: 220 });
+    $$('#gdD i', w).forEach((d, i) => d.classList.toggle('on', i === p));
+    $('#gdPrev', w).disabled = p === 0; $('#gdNext b', w).textContent = p === GUIDE.length - 1 ? '시작하기' : '다음';
+  };
+  $('#gdPrev', w).onclick = () => { if (p > 0) { p--; show(); } };
+  $('#gdNext', w).onclick = () => { if (p < GUIDE.length - 1) { p++; show(); } else closeModal(); };
+  $$('#gdD i', w).forEach(d => d.onclick = () => { p = +d.dataset.i; show(); });
+  show(); store.set('guideSeen', true);
+  return w;
+}

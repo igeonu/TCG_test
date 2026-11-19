@@ -3,9 +3,12 @@
    결과 : 승리/패배 연출 → 명예의 전당 → 카드별 활약 기록 → [다시 대전] / [로비로]
    ========================================================= */
 const RES = () => App.lastResult || (App.lastResult = sampleResult());
-const nm = id => EF[id] ? EF[id].name : id;
+// '포커 족보 공격' : 효과 카드 몫을 뺀 기본 족보 피해를 한 줄로 표시하기 위한 가상 카드
+const POKER_CARD = { id: 'POKER', name: '포커 족보 공격', suit: '🃏', rank: '', cat: '공격', k: 'A', g: 'C', desc: '선택한 5장의 족보 점수로 입힌 기본 피해 (효과 카드 몫 제외)' };
+const EFX = id => id === 'POKER' ? POKER_CARD : EF[id];
+const nm = id => EFX(id) ? EFX(id).name : id;
 function highlights(side) {
-  const c = side.cards, by = k => c.slice().sort((a, b) => b[k] - a[k])[0];
+  const c = side.cards.filter(x => x.id !== 'POKER'), by = k => c.slice().sort((a, b) => b[k] - a[k])[0];
   return { mu: by('uses'), md: by('dmg'), sup: c.slice().sort((a, b) => (b.shield + b.heal) - (a.shield + a.heal))[0] };
 }
 const resTop = (R, page) => `<div class="rs-top"><span class="pix">RUNE DUEL · 1V1</span><span class="rs-r">경기 종료 · <b class="num">${R.rounds}</b>라운드 <b class="tagb ${R.win ? 'win' : 'lose'}">${R.win ? '승리' : '패배'}</b> <span class="pix">${page}</span></span></div>`;
@@ -18,7 +21,7 @@ function bindRes(el) {
       if (a === 'report') App.go('report');
       if (a === 'fame') App.go('fame');
       if (a === 'lobby') App.go('home');
-      if (a === 'again') App.go('battle', { mode: R.mode, opp: R.sample ? undefined : R.oppName });
+      if (a === 'again') App.go('battle', { mode: R.mode, opp: R.sample ? undefined : R.oppName, rules: R.rules });
     }, 120);
   });
 }
@@ -27,9 +30,10 @@ Screens.fame = {
   full: true, title: '명예의 전당',
   html: () => {
     const R = RES(), me = R.me, op = R.op;
-    const mv = me.cards.find(c => c.id === me.mvp) || me.cards[0] || { id: '♠Q', uses: 0, dmg: 0, rounds: {} };
-    const omv = op.cards.find(c => c.id === op.mvp) || op.cards[0] || { id: '♠7', uses: 0, dmg: 0, rounds: {} };
-    const lastDmg = (mv.rounds[R.rounds] || {}).dmg || 0, e = EF[mv.id], oe = EF[omv.id];
+    const mv = me.cards.find(c => c.id === me.mvp) || me.cards.find(c => c.id !== 'POKER') || { id: '♠Q', uses: 0, dmg: 0, rounds: {} };
+    const omv = op.cards.find(c => c.id === op.mvp) || op.cards.find(c => c.id !== 'POKER') || { id: '♠7', uses: 0, dmg: 0, rounds: {} };
+    const lastDmg = (mv.rounds[R.rounds] || {}).dmg || 0, e = EFX(mv.id), oe = EFX(omv.id);
+    const pct = me.cardPct != null ? me.cardPct : null;
     const H = highlights(me), O = highlights(op);
     const hl = h => `<div class="hl-c"><small>최다 사용</small><b>${h.mu ? nm(h.mu.id) : '-'}</b><em class="num">${h.mu ? h.mu.uses + '회' : ''}</em></div>
       <div class="hl-c"><small>최다 누적 피해</small><b>${h.md ? nm(h.md.id) : '-'}</b><em class="num">${h.md ? h.md.dmg : ''}</em></div>
@@ -38,7 +42,7 @@ Screens.fame = {
       <div class="hf">
         <div class="hf-title"><h1 class="pix">${'HALL OF FAME'.split('').map((c, i) => `<span style="--i:${i}">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</h1><p>명예의 전당 — 이번 판을 빛낸 카드 ${R.sample ? '<em>(예시 데이터)</em>' : ''}</p></div>
         <div class="hf-left"><small class="lbl">내 진영 · YOU</small><div class="hf-mvp pix">MVP</div><h3>마지막 승부에 남긴<br>가장 결정적인 한 수.</h3>
-          <p>${R.rounds}라운드에 추가한 피해 <b class="num">${lastDmg}</b><br>이번 판 ${nm(mv.id)}의 기여 피해 <b class="num">${mv.dmg}</b><br>내 HP <b class="num">${R.myHP}</b> · 상대 HP <b class="num">${R.opHP}</b></p></div>
+          <p>${R.rounds}라운드에 추가한 피해 <b class="num">${lastDmg}</b><br>이번 판 ${nm(mv.id)}의 기여 피해 <b class="num">${mv.dmg}</b>${mv.shield + mv.heal ? ` · 지켜낸 양 <b class="num">${mv.shield + mv.heal}</b>` : ''}${pct != null ? `<br>총 피해 <b class="num">${me.total}</b> 중 효과 카드 기여 <b class="num">${pct}%</b>` : ''}<br>내 HP <b class="num">${R.myHP}</b> · 상대 HP <b class="num">${R.opHP}</b></p></div>
         <div class="hf-center"><div class="hf-rays"></div>
           <div class="hf-card ${isRed(e.suit) ? 'red' : ''}"><div class="hf-ct"><span class="tagb win">내 진영 MVP</span><span class="pix">${e.k === 'A' ? 'ACTIVE' : 'PASSIVE'}</span></div>
             <div class="hf-code">${e.suit}${e.rank}</div><h2>${e.name}</h2><div class="hf-ic">${icon(e.cat, 64)}</div>
@@ -77,7 +81,7 @@ Screens.report = {
       ${side.cards.map((c, i) => {
         const tags = []; if (c.id === side.mvp) tags.push('MVP'); if (H.md && c.id === H.md.id && c.dmg) tags.push('최다 피해'); if (H.mu && c.id === H.mu.id && c.uses) tags.push('최다 사용'); if (H.sup && c.id === H.sup.id && (c.shield + c.heal)) tags.push('보조 기여');
         return `<tr class="${isMe && c.id === side.mvp ? 'on' : ''}" data-side="${isMe ? 'me' : 'op'}" data-id="${c.id}" style="--i:${i}">
-        <td><div class="cr-n"><span class="cr-ic">${icon(EF[c.id].cat, 18)}</span><div><b>${EF[c.id].suit}${EF[c.id].rank} ${nm(c.id)}</b><small>${tags.join(' · ')}</small></div></div></td>
+        <td><div class="cr-n"><span class="cr-ic">${icon(EFX(c.id).cat, 18)}</span><div><b>${EFX(c.id).suit}${EFX(c.id).rank} ${nm(c.id)}</b><small>${c.id === 'POKER' ? '기본 공격' : tags.join(' · ')}</small></div></div></td>
         <td class="num">${c.uses}</td><td><div class="cr-dmg"><i style="--w:${c.dmg / maxD * 100}%"></i><b class="num">${c.dmg}</b></div></td><td class="num">${c.shield}</td><td class="num">${c.heal}</td></tr>`;
       }).join('')}</tbody><tfoot><tr><td>합계</td><td class="num">${sum('uses')}</td><td class="num">${sum('dmg')}</td><td class="num">${sum('shield')}</td><td class="num">${sum('heal')}</td></tr></tfoot></table></div>`;
     };
@@ -91,7 +95,7 @@ Screens.report = {
     const R = RES();
     const detail = (sk, id) => {
       const side = R[sk], c = side.cards.find(x => x.id === id); if (!c) return;
-      const rs = Object.entries(c.rounds).sort((a, b) => a[0] - b[0]), last = R.rounds, e = EF[id];
+      const rs = Object.entries(c.rounds).sort((a, b) => a[0] - b[0]), last = R.rounds, e = EFX(id);
       $('#crd', el).innerHTML = `<div class="cd-card"><span class="tagb ${sk === 'me' ? 'win' : 'lose'}">${sk === 'me' ? '내 진영' : '상대 진영'}</span>
         <div class="cd-nm">${icon(e.cat, 36)}<div><h2>${e.name} <small>${e.suit}${e.rank}</small></h2><small class="mut">${e.desc}</small></div></div>
         <div class="cd-big"><small>추가한 피해</small><b class="num">${c.dmg}</b><em>사용 ${c.uses}회 · 실드 ${c.shield} · 회복 ${c.heal}</em></div></div>

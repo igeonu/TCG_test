@@ -31,17 +31,28 @@ const AU = {
         this.apply();
       } catch (e) { this.ctx = null; return; }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this.sync();
     Music.boot();
   },
+  // 탭이 숨겨졌거나 음소거면 오디오 엔진 자체를 멈춤 (배경에서 음악이 계속 나오지 않도록)
+  sync() {
+    if (!this.ctx) return;
+    const off = AOPT.mute || document.hidden;
+    if (off && this.ctx.state === 'running') this.ctx.suspend();
+    else if (!off && this.ctx.state === 'suspended') this.ctx.resume();
+  },
   apply() {
-    if (!this.ctx) return; const t = this.ctx.currentTime;
+    if (!this.ctx) return; this.sync(); const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(AOPT.mute ? 0 : 1, t, .05);
     this.sfxBus.gain.setTargetAtTime(AOPT.sfx * 1.1, t, .05);
     this.musicBus.gain.setTargetAtTime(AOPT.music * .5, t, .15);
   },
   ready() { return this.ctx && !AOPT.mute; },
 };
+
+document.addEventListener('visibilitychange', () => AU.sync());
+window.addEventListener('pagehide', () => { if (AU.ctx) AU.ctx.suspend(); });
+window.addEventListener('pageshow', () => AU.sync());
 
 /* ---------- 효과음 ---------- */
 const Sfx = {

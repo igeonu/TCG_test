@@ -17,7 +17,7 @@ const App = {
   rules: { turnLimit: 0, turnTime: 60, startHP: 100 },
   diff: 'normal',
   player: { name: '플레이어', lv: 1 },
-  battleOpt: { hl: 'size', cd: 'lock', forecast: true },
+  battleOpt: { hl: 'size', cd: 'lock', forecast: false },
   lastResult: null,
   get myDeck() { return this._deck; },
   set myDeck(v) { this._deck = v; store.set('deck', v); },
@@ -183,6 +183,7 @@ function settingsModal() {
     <label>효과 카드 강조 방식 <small>(마우스를 올렸을 때)</small></label>${seg('hl', [['size', '크기 변화'], ['border', '테두리 색'], ['both', '둘 다']])}
     <label>쿨타임 표시</label>${seg('cd', [['lock', '자물쇠'], ['hourglass', '모래시계'], ['tint', '색상 변환']])}
     <label>피해 정산 연출</label>${seg('forecast', [[true, '전투 예측 먼저'], [false, '바로 정산']])}
+    <label>연출 속도 <small>(피해 정산 중 화면 클릭·Space로 건너뛰기)</small></label><div class="seg" data-fx="speed">${[['normal', '보통'], ['fast', '빠르게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.speed === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>사운드</label>
     <div class="vol"><span>효과음</span><input type="range" min="0" max="100" value="${Math.round(AOPT.sfx * 100)}" data-a="sfx"><b class="num">${Math.round(AOPT.sfx * 100)}</b></div>
     <div class="vol"><span>배경음악</span><input type="range" min="0" max="100" value="${Math.round(AOPT.music * 100)}" data-a="music"><b class="num">${Math.round(AOPT.music * 100)}</b></div>
