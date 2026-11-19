@@ -12,8 +12,8 @@ function homeHTML() {
   const last = App.history[0];
   return `<div class="home">
     <div class="ace-show" id="aceShow"><div class="ace ${isRed(ace.suit) ? 'red' : ''}" id="ace"><div class="shine"></div>
-      <div class="ace-h"><b>${ace.suit}${ace.rank}</b><span>${GRADES[ace.g].ko} · ${ace.k === 'A' ? '액티브' : '패시브'}</span></div>
-      <div class="ace-art"><span>${ace.suit}</span></div>
+      <div class="ace-h"><b>${codeHTML(ace)}</b><span>${GRADES[ace.g].ko} · ${ace.k === 'A' ? '액티브' : '패시브'}</span></div>
+      <div class="ace-art"><i class="ec-sg a">${suitSvg(ace.suit)}</i>${icon(ace.cat, 110)}<i class="ec-sg b">${suitSvg(ace.suit)}</i></div>
       <h3>${ace.name}</h3><p>${ace.desc}</p></div></div>
     <div class="myace"><small>MY ACE</small><h2>이번 판을 끝내는 한 장</h2>
       <p>가장 많이 MVP가 된 카드가 홈에 걸립니다. <em>MVP ${st.topMvpN}회</em></p>
@@ -197,7 +197,7 @@ Screens.cards = {
     let q = '', sort = 'suit', f = 'all', sel = '♠Q';
     const detail = id => {
       const e = EF[id], inD = App.myDeck.includes(id);
-      $('#det', el).innerHTML = `<div class="det-c">${cardHTML(e)}</div><small class="lbl">${GRADES[e.g].ko} · ${e.k === 'A' ? '액티브' : '패시브'} · ${e.cat}</small><h2>${e.name} <span>${e.suit}${e.rank}</span></h2><p>${e.desc}</p>
+      $('#det', el).innerHTML = `<div class="det-c">${cardHTML(e)}</div><small class="lbl">${GRADES[e.g].ko} · ${e.k === 'A' ? '액티브' : '패시브'} · ${e.cat}</small><h2>${e.name} <span>${codeHTML(e)}</span></h2><p>${e.desc}</p>
         <div class="cv-kv"><div><small>쿨타임</small><b class="num">${e.k === 'A' ? e.cd + '턴' : '-'}</b></div><div><small>문양</small><b>${e.suit}</b></div><div><small>숫자</small><b class="num">${e.rank}</b></div></div>
         ${btn(inD ? '덱에서 빼기' : '덱에 넣기', `${App.myDeck.length}/26`, inD ? C.gray : C.green, 'id="tg"', 'wide')}`;
       $('.det-c', el).animate([{ transform: 'rotateY(90deg)' }, { transform: 'none' }], { duration: 300, easing: 'ease-out' });
@@ -297,7 +297,7 @@ const GUIDE = [
     <p class="mut">점수가 같으면 더 높은 숫자(예: A 원 페어 &gt; 9 원 페어)나 키커로 승부하고, 이긴 쪽이 고정 피해 ${KICKER_DMG}을 줍니다. 패가 완전히 같을 때만 무승부입니다.</p>` },
   { t: '피해 계산', h: () => `<div class="gd-fml"><span>(족보 점수 + 보너스) × 배율</span><b>=</b><span>최종 점수</span></div>
     <p class="gd-lead">양쪽 최종 점수의 <b>차이만큼</b> 낮은 쪽의 HP가 줄어듭니다. 예) 내 점수 (25 + 3) × 2 = 56, 상대 30 → 상대 HP <b>-26</b></p>
-    <ul class="gd-list"><li><b>실드</b> — 피해를 먼저 막아 주고, 다음 라운드 시작 때 사라집니다</li><li><b>감면</b> — 받는 피해를 % 만큼 줄입니다</li><li><b>치명타</b> — 확률적으로 내 점수 ×1.5</li><li><b>지속 피해</b> — 라운드 시작마다 HP 감소</li></ul>` },
+    <ul class="gd-list"><li><b>실드</b> — 피해를 먼저 막아 주고, 다음 라운드 시작 때 사라집니다</li><li><b>감면</b> — 받는 피해를 % 만큼 줄입니다</li><li><b>치명타</b> — 확률적으로 내 점수 ×1.5 (확률은 최대 40%)</li><li><b>지속 피해</b> — 라운드 시작마다 HP 감소</li><li><b>피해 상한</b> — 쇼다운 한 번의 피해는 상대 최대 HP의 50%까지</li><li><b>동시 KO · 턴 제한</b> — 남은 HP → 총 피해량 → 마지막 쇼다운 승자 순으로 승패 결정</li></ul>` },
   { t: '효과 카드', h: () => `<ul class="gd-list"><li><b>액티브</b> — 02·03 단계에 직접 눌러 사용. 쓰면 쿨타임이 생기고 상대에게 공개됩니다</li><li><b>패시브</b> — 장착만 하면 자동 적용. 항상 공개 상태입니다</li><li><b>함정</b> — 상대가 특정 카드를 쓸 때 확률로 반응합니다 (간파·흐트러짐·마법 방패 등)</li></ul>
     <div class="gd-grades"><span class="c">일반</span><span class="r">희귀</span><span class="e">◆ 영웅</span><span class="l">★ 전설</span></div>
     <p class="mut">덱은 52장 중 26장으로 구성하며 영웅은 최대 6장, 전설은 최대 2장입니다. 전투 중 장착 칸은 5칸(짐꾼 보유 시 +2)이고, 가득 차면 기존 카드와 교체합니다.</p>` },

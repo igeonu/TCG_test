@@ -156,11 +156,10 @@ const TRACKS = {
     kick: [0], snare: [], hat: 0, kickVol: .3, bass: 'long', pad: 'ep', melody: .2, lead: 'vibe' },
 };
 const Music = {
-  cur: null, want: 'lobby', out: null, timer: null, next: 0, step: 0, intense: 0, duckUntil: 0, mood: 'calm', wantMood: 'calm',
+  cur: null, want: 'lobby', out: null, timer: null, next: 0, step: 0, duckUntil: 0, mood: 'calm', wantMood: 'calm',
   boot() { if (!AU.ctx || this.timer) return; this.switchTo(this.want, true); this.timer = setInterval(() => this.tick(), 25); },
   play(name) { this.want = name; if (AU.ctx && this.timer) this.switchTo(name); },
-  setIntense(v) { this.intense = v ? 1 : 0; },
-  // 전투 무드 : calm(평소) · lead(내가 우세) · behind(상대가 우세) · clutch(양쪽 모두 위기). 마디가 바뀔 때 전환
+  // 전투 무드 : calm(평소) · lead(내가 우세) · behind(상대 우세 또는 내 HP 위험) · clutch(양쪽 모두 위기). 마디가 바뀔 때 전환
   setMood(m) { this.wantMood = m || 'calm'; if (!this.out || this.cur !== 'battle') this.mood = this.wantMood; },
   duck(sec) { if (!AU.ctx) return; const t = AU.ctx.currentTime, g = AU.musicBus.gain; this.duckUntil = t + sec; g.cancelScheduledValues(t); g.setTargetAtTime(AOPT.music * .5 * .15, t, .05); g.setTargetAtTime(AOPT.music * .5, t + sec, .6); },
   switchTo(name, first) {
@@ -177,7 +176,7 @@ const Music = {
     while (this.next < c.currentTime + .15) {
       if (this.step % 16 === 0 && this.mood !== this.wantMood) this.mood = this.wantMood;
       const MD = this.cur === 'battle' && T.moods && T.moods[this.mood];
-      const bpm = T.bpm * (MD ? MD.bpm : 1) * (this.cur === 'battle' && this.intense && this.mood === 'calm' ? 1.12 : 1);
+      const bpm = T.bpm * (MD ? MD.bpm : 1);
       this.note(T, this.step, this.next);
       const spb = 60 / bpm / 4, sw = T.swing ? (this.step % 2 ? 1 - T.swing : 1 + T.swing) : 1;
       this.next += spb * sw; this.step = (this.step + 1) % (T.bars.length * 16);
@@ -221,18 +220,18 @@ const Music = {
   note(T, step, t) {
     const mood = this.cur === 'battle' ? this.mood : 'calm', MD = T.moods && T.moods[mood], BARS = MD ? MD.bars : T.bars;
     const bar = Math.floor(step / 16), s = step % 16, [root, ch] = BARS[bar % BARS.length], nextRoot = BARS[(bar + 1) % BARS.length][0];
-    const hot = this.cur === 'battle' && (this.intense || mood === 'behind' || mood === 'clutch');
+    const hot = this.cur === 'battle' && (mood === 'behind' || mood === 'clutch'), clutch = mood === 'clutch';
     if (MD) this.moodLayer(mood, bar, s, t, root, ch);
     // 드럼
     if (T.kick.includes(s) || (hot && (s === 14 || s === 6))) this.o('sine', 150, t, .32, T.kickVol, { slide: .3 });
     if (T.snare.includes(s)) { this.nz(t, .16, T.snareVol, 1800); this.o('triangle', 190, t, .08, T.snareVol * .8, { slide: .6 }); }
     if (T.hat && s % T.hat === 0) this.nz(t, s % 4 === 2 && this.cur === 'battle' ? .12 : .035, T.hatVol * (s % 4 === 0 ? 1.4 : 1) * (hot ? 1.5 : 1), 8000);
-    // 하트비트 (내 HP가 위험할 때)
-    if (hot && (s === 0 || s === 3)) this.o('sine', 55, t, .25, .5, { slide: .7 });
+    // 하트비트 (열세일 때 · 접전은 무드 레이어가 더 빠른 박동을 따로 냄)
+    if (hot && !clutch && (s === 0 || s === 3)) this.o('sine', 55, t, .25, .5, { slide: .7 });
     // 베이스
     const B = n => midi(n);
     if (T.bass === 'walk' && s % 4 === 0) { const seq = [root, root + 7, root + 12, nextRoot + (nextRoot > root ? -1 : 1)]; this.o('triangle', B(seq[s / 4] - 12 + 12), t, .34, .32, { lp: 900 }); }
-    if (T.bass === 'drive' && s % 2 === 0) this.o('sawtooth', B(root + (s % 8 === 6 ? 12 : 0)), t, .16, .2, { lp: hot ? 1600 : 900, lpEnd: 200, q: 6 });
+    if (T.bass === 'drive' && !clutch && s % 2 === 0) this.o('sawtooth', B(root + (s % 8 === 6 ? 12 : 0)), t, .16, .2, { lp: hot ? 1600 : 900, lpEnd: 200, q: 6 });
     if (T.bass === 'pulse' && s % 4 === 0) this.o('square', B(root), t, .25, .12, { lp: 700 });
     if (T.bass === 'long' && s === 0) this.o('triangle', B(root), t, 2.4, .3, { lp: 500, a: .2 });
     // 코드

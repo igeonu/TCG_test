@@ -28,7 +28,8 @@ const App = {
     const d = store.get('deck', null);
     this._deck = Array.isArray(d) && d.every(id => EF[id]) ? d : [...DEFAULT_DECK];
     const h = store.get('history', null);
-    this._hist = Array.isArray(h) && h.length ? h : [...SAMPLE_HISTORY];
+    // 예전 버전이 저장해 둔 예시 기록(가짜 데이터)은 걸러내고 실제 기록만 남김
+    this._hist = Array.isArray(h) ? h.filter(x => x && !LEGACY_SAMPLE.has(`${x.opp}|${x.date}|${x.dmg}`)) : [];
     this.battleOpt = { ...this.battleOpt, ...store.get('battleOpt', {}) };
     this.diff = store.get('diff', 'normal'); if (!DIFFS[this.diff]) this.diff = 'normal';
     $('#chrome').innerHTML = `
@@ -64,7 +65,7 @@ const App = {
   go(screen, opts = {}, instant = false) {
     const S = Screens[screen]; if (!S) return;
     this.clear(); closeModal(true); hideTip();
-    $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner').forEach(x => x.remove());
+    $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner,#layer .endov').forEach(x => x.remove());
     const host = $('#screens'), olds = [...host.children];
     // 사라지는 화면의 id를 지워, 새 화면과 id가 겹쳐 엉뚱한 곳에 그려지는 일을 막음
     // 사라지는 화면은 입력을 받지 않게(inert) — 전환 중 키보드·클릭이 옛 화면으로 가지 않도록
@@ -74,7 +75,7 @@ const App = {
     el.innerHTML = S.html(opts);
     host.appendChild(el);
     const from = this.screen; this.screen = screen;
-    if (screen === 'battle') { Music.setMood('calm'); Music.play('battle'); } else if (screen !== 'fame' && screen !== 'report') { Music.play('lobby'); Music.setIntense(false); Music.setMood('calm'); }
+    if (screen === 'battle') { Music.setMood('calm'); Music.play('battle'); } else if (screen !== 'fame' && screen !== 'report') { Music.play('lobby'); Music.setMood('calm'); }
     const ch = $('#chrome'); ch.classList.toggle('bare', !!S.full);
     $('#hdWhere').textContent = S.title || '';
     const i = tabIdx(S.tab || 'home');
@@ -159,11 +160,6 @@ function juice(btn) {
 }
 function shake(el, cls = 'shake') { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 600); }
 function bump(el) { if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-function countUp(el, to, ms = 900) {
-  const from = +(el.dataset.v || 0), t0 = performance.now(); el.dataset.v = to;
-  const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
-  requestAnimationFrame(step);
-}
 function bindTips(root) {
   root.addEventListener('mouseover', e => {
     const t = e.target.closest('[data-tip]'); if (!t) return;
@@ -210,8 +206,8 @@ function settingsModal() {
   $('#stX', w).onclick = () => closeModal();
   const refresh = () => { if (Screens[App.screen] && Screens[App.screen].tab) App.go(App.screen); };
   $('#stReset', w).onclick = async () => {
-    if (!await confirmModal('대전 기록 초기화', '지금까지의 대전 기록이 모두 지워지고 예시 기록으로 바뀝니다. 되돌릴 수 없습니다.', '기록 지우기')) return;
-    App.history = [...SAMPLE_HISTORY]; toast('대전 기록을 초기화했습니다'); refresh();
+    if (!await confirmModal('대전 기록 초기화', '지금까지의 대전 기록이 모두 지워집니다. 되돌릴 수 없습니다.', '기록 지우기')) return;
+    App.history = []; toast('대전 기록을 초기화했습니다'); refresh();
   };
   $('#stDeck', w).onclick = async () => {
     if (!await confirmModal('덱 초기화', '직접 구성한 덱이 기본 덱(26장)으로 바뀝니다. 되돌릴 수 없습니다.', '덱 되돌리기')) return;

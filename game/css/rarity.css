@@ -21,12 +21,14 @@
 
 /* ---------- 드래프트 : 뒷면 → 공개 ---------- */
 .dm-flip{position:relative}
-.dm-back{position:absolute;inset:0;z-index:5;border-radius:10px;border:3px solid #fff;background:repeating-linear-gradient(45deg,#ff5a3c 0 8px,#c8432c 8px 16px);box-shadow:4px 4px 0 rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font:400 64px 'Silkscreen';color:#fff;text-shadow:4px 4px 0 rgba(0,0,0,.3)}
+.dm-back{position:absolute;inset:0;z-index:5;border-radius:10px;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
 .dm-c.hid .ec{visibility:hidden}
 .dm-c.hid{pointer-events:none}
 .dm-c.charging .dm-back{animation:charge .09s steps(2) infinite;box-shadow:0 0 0 4px var(--rc),0 0 50px 10px var(--rc)}
-.dm-c.charging.rar-L .dm-back{background:repeating-linear-gradient(45deg,#ffd23f 0 8px,#d49a00 8px 16px)}
-.dm-c.charging.rar-E .dm-back{background:repeating-linear-gradient(45deg,#b06bff 0 8px,#7d4cc4 8px 16px)}
+/* 충전 중 : 뒷면 무늬 위에 등급 색을 입혀 공개 전에 등급을 예고 */
+.dm-back::after{content:'';position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity .2s;mix-blend-mode:color;background:var(--rc,#fff)}
+.dm-c.charging .dm-back::after{opacity:1;animation:chargeTint .18s steps(2) infinite}
+@keyframes chargeTint{50%{opacity:.55}}
 @keyframes charge{50%{transform:translate(3px,-2px) rotate(1.5deg)}}
 .dm-c.rev .dm-back{animation:backOut .28s ease-in forwards}
 .dm-c.rev .ec{animation:frontIn .4s .14s cubic-bezier(.2,1.6,.4,1) both}

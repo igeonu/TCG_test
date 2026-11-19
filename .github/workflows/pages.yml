@@ -1,0 +1,30 @@
+# GitHub Pages 배포 : game/ 폴더만 올리고, CSS·JS 주소의 ?v= 를 커밋 해시로 자동 교체
+# (기획 시안 폴더 rune-duel-ui/ 는 배포되지 않음)
+name: Deploy game to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp asset version with commit hash
+        run: sed -i -E "s/\?v=[0-9A-Za-z]+/?v=${GITHUB_SHA::8}/g" game/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: game
+      - id: deployment
+        uses: actions/deploy-pages@v4

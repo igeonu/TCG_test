@@ -29,10 +29,10 @@
 .fpc.fpc-new .pc{width:100%;height:100%;box-shadow:3px 3px 0 rgba(0,0,0,.4)}
 
 /* ---------- 카드 뒷면 ---------- */
-.pback,.sd-b,.dm-back,.fan.op .ec.back{background:url(../assets/cards/back.webp) center/100% 100% no-repeat!important;border:none!important;color:transparent!important}
-.pback i,.sd-b,.dm-back{font-size:0!important;text-shadow:none!important}
-.fan.op .ec.back span,.fan.op .ec.back i{display:none}
-.pile{background:url(../assets/cards/back.webp) center/100% 100% no-repeat!important;border:none!important;text-shadow:0 1px 0 #000,0 0 6px #000}
+.pback,.sd-b,.dm-back,.fan.op .ec.back,.pile{background:url(../assets/cards/back.webp) center/100% 100% no-repeat}
+.fan.op .ec.back{border:none;padding:0}
+.pback i,.sd-b,.dm-back,.fan.op .ec.back span,.fan.op .ec.back i{font-size:0;color:transparent}
+.pile{text-shadow:0 1px 0 #000,0 0 6px #000;color:#fff}
 .pile span,.pile b{background:rgba(20,24,52,.78);padding:0 5px;border-radius:4px}
 
 /* ---------- 효과 카드 : 그림 카드 프레임 스타일 ---------- */
@@ -59,3 +59,32 @@
 .det-c .ec-ic,.dinfo .ec-ic,.m-game .ec-ic,.ci-card .ec-ic,.fx-get .ec-ic{margin:4px 0!important;flex:1 1 auto}
 .det-c .ec-d,.dinfo .ec-d,.m-game .ec-d,.ci-card .ec-d,.fx-get .ec-d{flex:0 0 auto}
 .det-c .ec-sg,.dinfo .ec-sg,.m-game .ec-sg,.ci-card .ec-sg,.fx-get .ec-sg{width:18px;height:18px}
+
+/* 일러스트 그림 카드 : 이미지 속 작은 인덱스 위에 코드 인덱스를 흰 바탕으로 크게 덧그림 */
+.pc.img .pc-tl,.pc.img .pc-br{background:#fff;padding:1.5cqw 1.5cqw 2.5cqw;border-radius:2cqw;left:3cqw;top:3cqw}
+.pc.img .pc-br{left:auto;top:auto;right:3cqw;bottom:3cqw}
+/* 선택·리롤 표시 : 이미지 카드에도 색이 보이도록 안쪽 그림자로 칠함 */
+.my-hand .pc.img.sel .pc-img{box-shadow:inset 0 0 0 999px rgba(61,255,149,.28)}
+.my-hand .pc.img.rr .pc-img{box-shadow:inset 0 0 0 999px rgba(255,214,90,.32)}
+/* 작은 카드(쇼다운·족보 가이드) : 핍 대신 가운데 큰 숫자와 문양 */
+.pc-mid{display:none}
+.pc.sm:not(.img) .pc-body,.pc.sm:not(.img) .pc-tl,.pc.sm:not(.img) .pc-br{display:none}
+.pc.sm:not(.img) .pc-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqw;font:700 44cqw/0.85 'Libre Baskerville',Georgia,serif;letter-spacing:-.08em}
+.pc.sm .pc-mid svg{width:30cqw;height:30cqw}
+.pc.sm.img .pc-tl,.pc.sm.img .pc-br{font-size:30cqw}
+/* 카드 코드 표기 (숫자 + 문양) */
+.cc{display:inline-flex;align-items:center;gap:.08em;font-size:inherit!important;line-height:1!important;font-family:'Libre Baskerville',Georgia,serif;font-weight:700;letter-spacing:-.04em;color:var(--suit-blk);white-space:nowrap}
+.cc.red{color:var(--suit-red)}
+.cc svg{width:.75em;height:.75em;fill:currentColor}
+.log .cc,.pv-e .cc,.rp-h .cc,.dm-prev .cc,.hf-code .cc,.cd-nm .cc,.cr-n .cc,.dinfo .cc,h2 .cc{background:#fff;padding:0 .25em;border-radius:4px}
+/* 손패 영역 효과 카드 : 그림 패널 높이를 확보하고 설명은 2줄로 */
+.fan:not(.op) .ec .ec-ic{flex:0 0 52px}
+.fan:not(.op) .ec .ec-d{flex:0 0 auto;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 홈 대표 카드 그림 패널 */
+.ace-art{margin:12px 0;flex:1;position:relative;display:flex;align-items:center;justify-content:center;border:3px solid #111;border-radius:6px;overflow:hidden;color:var(--suit-blue);
+  background:linear-gradient(170deg,transparent calc(50% - 2px),#111 calc(50% - 2px),#111 calc(50% + 2px),transparent calc(50% + 2px)),#808080}
+.ace.red .ace-art{color:var(--suit-red)}
+.ace-art .ico{position:relative;z-index:1;stroke-width:3;filter:drop-shadow(3px 3px 0 #111) drop-shadow(-2px -2px 0 #111) drop-shadow(0 0 8px rgba(255,255,255,.35))}
+.ace-art .ec-sg{width:30px;height:30px}.ace-art .ec-sg.a{right:10px;top:10px}.ace-art .ec-sg.b{left:10px;bottom:10px}
+.ace.red .ace-art .ec-sg{filter:drop-shadow(0 0 4px rgba(255,90,100,.9))}
+.ace:not(.red) .ace-art .ec-sg{filter:drop-shadow(0 0 4px rgba(150,170,255,.9))}

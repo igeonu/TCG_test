@@ -126,20 +126,10 @@ const DIFFS = {
     desc: '높은 등급 카드를 우선 드래프트하고 액티브를 공격적으로 사용합니다.', style: '전설 2장 풀덱' },
 };
 
-/* ---------- 대전 기록 (예시 데이터) ---------- */
+/* ---------- 대전 기록 ---------- */
 const OPP_NAMES = ['Rival_K', '은빛딜러', 'HeartGuard', 'ClubKing', 'Joker_77', '룬마스터', 'SpadeAce', '다이아몬드'];
-const SAMPLE_HISTORY = [
-  { win: true, mode: '무작위', rounds: 8, mvp: '심판', dmg: 312, opp: 'Rival_K', date: '11.19', hp: 18 },
-  { win: true, mode: '친구', rounds: 6, mvp: '연격', dmg: 268, opp: '은빛딜러', date: '11.18', hp: 41 },
-  { win: false, mode: '무작위', rounds: 9, mvp: '방패', dmg: 188, opp: 'HeartGuard', date: '11.18', hp: 0 },
-  { win: true, mode: '연습', rounds: 5, mvp: '심판', dmg: 240, opp: 'AI · 보통', date: '11.17', hp: 57 },
-  { win: true, mode: '무작위', rounds: 7, mvp: '강타', dmg: 221, opp: 'ClubKing', date: '11.17', hp: 22 },
-  { win: true, mode: '무작위', rounds: 6, mvp: '심판', dmg: 254, opp: 'Joker_77', date: '11.16', hp: 35 },
-  { win: false, mode: '친구', rounds: 10, mvp: '연격', dmg: 176, opp: '룬마스터', date: '11.15', hp: 0 },
-  { win: true, mode: '연습', rounds: 4, mvp: '심판', dmg: 205, opp: 'AI · 쉬움', date: '11.15', hp: 70 },
-  { win: false, mode: '무작위', rounds: 8, mvp: '제련', dmg: 160, opp: 'SpadeAce', date: '11.14', hp: 0 },
-  { win: true, mode: '무작위', rounds: 7, mvp: '심판', dmg: 233, opp: '다이아몬드', date: '11.13', hp: 12 },
-];
+// 예전 버전이 첫 실행 때 넣어 두던 예시 기록 식별용 (상대|날짜|피해) — 저장소에서 걸러냄
+const LEGACY_SAMPLE = new Set(['Rival_K|11.19|312', '은빛딜러|11.18|268', 'HeartGuard|11.18|188', 'AI · 보통|11.17|240', 'ClubKing|11.17|221', 'Joker_77|11.16|254', '룬마스터|11.15|176', 'AI · 쉬움|11.15|205', 'SpadeAce|11.14|160', '다이아몬드|11.13|233']);
 function historyStats(h) {
   const wins = h.filter(x => x.win).length;
   let best = 0, cur = 0; [...h].reverse().forEach(x => { cur = x.win ? cur + 1 : 0; best = Math.max(best, cur); });
@@ -180,7 +170,7 @@ function cardHTML(e, extra = '', attrs = '', inner = '') {
 }
 // 영웅·전설 카드의 홀로그램 광택 레이어
 const holo = e => (e.g === 'E' || e.g === 'L') ? `<i class="holo"></i>` : '';
-const miniCard = (e, extra = '', attrs = '') => `<div class="mc g-${e.g} ${isRed(e.suit) ? 'red' : ''} ${extra}" data-id="${e.id}" ${attrs}><b>${e.suit}${e.rank}</b><span>${e.name}</span><em>${icon(e.cat, 16)}</em>${holo(e)}</div>`;
+const miniCard = (e, extra = '', attrs = '') => `<div class="mc g-${e.g} ${isRed(e.suit) ? 'red' : ''} ${extra}" data-id="${e.id}" ${attrs}><b>${codeHTML(e)}</b><span>${e.name}</span><em>${icon(e.cat, 16)}</em>${holo(e)}</div>`;
 /* ---------- 포커 카드 : 각진 기하학 문양 · 숫자별 핍 배치 · 에이스 대형 문양 · 그림 카드 ---------- */
 const SK = { '♠': 'S', '♥': 'H', '♣': 'C', '◆': 'D' };
 const SUIT_SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -190,6 +180,9 @@ const SUIT_SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hi
   <symbol id="su-C" viewBox="0 0 20 20"><polygon points="10,0.5 13.6,4.6 10,8.7 6.4,4.6"/><polygon points="4.6,6.4 8.7,10 4.6,13.6 0.5,10"/><polygon points="15.4,6.4 19.5,10 15.4,13.6 11.3,10"/><polygon points="10,5.5 13.5,10 10,14.5 6.5,10"/><polygon points="10,11.5 6.8,19.5 13.2,19.5"/></symbol>
 </defs></svg>`;
 const suitSvg = (s, cls = '') => `<svg class="${cls}" viewBox="0 0 20 20"><use href="#su-${SK[s]}"/></svg>`;
+// 카드 코드 표기 통일 : 숫자 → 문양 순 (화면용 HTML · 글자만 들어가는 곳용 텍스트)
+const codeTxt = e => `${e.rank}${e.suit}`;
+const codeHTML = e => SK[e.suit] ? `<span class="cc ${isRed(e.suit) ? 'red' : ''}"><b>${e.rank}</b>${suitSvg(e.suit)}</span>` : `<span class="cc">${e.suit}${e.rank}</span>`;
 // 핍 위치 [x%, y%] (아래쪽 절반은 뒤집어서 그림)
 const PIPS = (() => {
   const L = 33, C = 50, R = 67, T = 19, B = 81, M = 50, r1 = 39.5, r2 = 60.5;
@@ -218,10 +211,11 @@ function faceArt(r, s) {
 }
 function pokerHTML(c, extra = '', attrs = '') {
   const red = isRed(c.s), img = FACE_IMG[c.r + c.s];
-  if (img) return `<div class="pc img ${red ? 'red' : ''} ${extra}" ${attrs}><span class="pc-img" style="background-image:url(assets/cards/${img}.webp)"></span></div>`;
+  // 일러스트 카드도 모서리 인덱스는 코드로 크게 덧그려 다른 카드와 같은 크기로 읽히게 함
+  if (img) return `<div class="pc img ${red ? 'red' : ''} ${extra}" ${attrs}><span class="pc-img" style="background-image:url(assets/cards/${img}.webp)"></span><span class="pc-tl"><b>${c.r}</b>${suitSvg(c.s)}</span><span class="pc-br"><b>${c.r}</b>${suitSvg(c.s)}</span></div>`;
   const idx = cls => `<span class="${cls}"><b>${c.r}</b>${suitSvg(c.s)}</span>`;
   const body = c.r === 'A' ? aceArt(c.s) : PIPS[c.r] ? PIPS[c.r].map(([x, y]) => suitSvg(c.s, 'pip' + (y > 50 ? ' flip' : '')).replace('<svg', `<svg style="left:${x}%;top:${y}%"`)).join('') : `<span class="pc-fbox">${faceArt(c.r, c.s)}</span>`;
-  return `<div class="pc ${red ? 'red' : ''} ${extra}" ${attrs}>${idx('pc-tl')}<span class="pc-body">${body}</span>${idx('pc-br')}</div>`;
+  return `<div class="pc ${red ? 'red' : ''} ${extra}" ${attrs}>${idx('pc-tl')}<span class="pc-body">${body}</span>${idx('pc-br')}<span class="pc-mid"><b>${c.r}</b>${suitSvg(c.s)}</span></div>`;
 }
 function fmtTime(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
 function roomCode() { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return 'RD-' + Array.from({ length: 4 }, () => pick(c)).join(''); }

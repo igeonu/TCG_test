@@ -45,7 +45,7 @@ Screens.fame = {
           <p>${R.rounds}라운드에 추가한 피해 <b class="num">${lastDmg}</b><br>이번 판 ${nm(mv.id)}의 기여 피해 <b class="num">${mv.dmg}</b>${mv.shield + mv.heal ? ` · 지켜낸 양 <b class="num">${mv.shield + mv.heal}</b>` : ''}${pct != null ? `<br>총 피해 <b class="num">${me.total}</b> 중 효과 카드 기여 <b class="num">${pct}%</b>` : ''}<br>내 HP <b class="num">${R.myHP}</b> · 상대 HP <b class="num">${R.opHP}</b></p></div>
         <div class="hf-center"><div class="hf-rays"></div>
           <div class="hf-card ${isRed(e.suit) ? 'red' : ''}"><div class="hf-ct"><span class="tagb win">내 진영 MVP</span><span class="pix">${e.k === 'A' ? 'ACTIVE' : 'PASSIVE'}</span></div>
-            <div class="hf-code">${e.suit}${e.rank}</div><h2>${e.name}</h2><div class="hf-ic">${icon(e.cat, 64)}</div>
+            <div class="hf-code">${codeHTML(e)}</div><h2>${e.name}</h2><div class="hf-ic">${icon(e.cat, 64)}</div>
             <small>이번 판, 이 카드가 추가한 피해</small><div class="hf-cn"><b class="num" id="hfNum">0</b><span>사용 ${mv.uses}회</span></div></div></div>
         <div class="hf-rival"><small class="lbl red">상대 진영 · RIVAL MVP</small><div class="rv-n"><h3>${oe.name}</h3><span>${icon(oe.cat, 44)}</span></div>
           <div class="rv-s"><div><small>내 진영에 가한 피해</small><b class="num">${omv.dmg}</b></div><div><small>사용</small><b class="num">${omv.uses}회</b></div></div><p>${op.name}의 덱에서 가장 위협적이었던 카드.</p></div>
@@ -81,7 +81,7 @@ Screens.report = {
       ${side.cards.map((c, i) => {
         const tags = []; if (c.id === side.mvp) tags.push('MVP'); if (H.md && c.id === H.md.id && c.dmg) tags.push('최다 피해'); if (H.mu && c.id === H.mu.id && c.uses) tags.push('최다 사용'); if (H.sup && c.id === H.sup.id && (c.shield + c.heal)) tags.push('보조 기여');
         return `<tr class="${isMe && c.id === side.mvp ? 'on' : ''}" data-side="${isMe ? 'me' : 'op'}" data-id="${c.id}" style="--i:${i}">
-        <td><div class="cr-n"><span class="cr-ic">${icon(EFX(c.id).cat, 18)}</span><div><b>${EFX(c.id).suit}${EFX(c.id).rank} ${nm(c.id)}</b><small>${c.id === 'POKER' ? '기본 공격' : tags.join(' · ')}</small></div></div></td>
+        <td><div class="cr-n"><span class="cr-ic">${icon(EFX(c.id).cat, 18)}</span><div><b>${codeHTML(EFX(c.id))} ${nm(c.id)}</b><small>${c.id === 'POKER' ? '기본 공격' : tags.join(' · ')}</small></div></div></td>
         <td class="num">${c.uses}</td><td><div class="cr-dmg"><i style="--w:${c.dmg / maxD * 100}%"></i><b class="num">${c.dmg}</b></div></td><td class="num">${c.shield}</td><td class="num">${c.heal}</td></tr>`;
       }).join('')}</tbody><tfoot><tr><td>합계</td><td class="num">${sum('uses')}</td><td class="num">${sum('dmg')}</td><td class="num">${sum('shield')}</td><td class="num">${sum('heal')}</td></tr></tfoot></table></div>`;
     };
@@ -97,7 +97,7 @@ Screens.report = {
       const side = R[sk], c = side.cards.find(x => x.id === id); if (!c) return;
       const rs = Object.entries(c.rounds).sort((a, b) => a[0] - b[0]), last = R.rounds, e = EFX(id);
       $('#crd', el).innerHTML = `<div class="cd-card"><span class="tagb ${sk === 'me' ? 'win' : 'lose'}">${sk === 'me' ? '내 진영' : '상대 진영'}</span>
-        <div class="cd-nm">${icon(e.cat, 36)}<div><h2>${e.name} <small>${e.suit}${e.rank}</small></h2><small class="mut">${e.desc}</small></div></div>
+        <div class="cd-nm">${icon(e.cat, 36)}<div><h2>${e.name} <small>${codeHTML(e)}</small></h2><small class="mut">${e.desc}</small></div></div>
         <div class="cd-big"><small>추가한 피해</small><b class="num">${c.dmg}</b><em>사용 ${c.uses}회 · 실드 ${c.shield} · 회복 ${c.heal}</em></div></div>
         <div class="cd-rounds"><h4>라운드별 사용 / 피해</h4><table><thead><tr><th>라운드</th><th>사용</th><th>추가 피해</th></tr></thead><tbody>
         ${rs.length ? rs.map(([r, v]) => `<tr class="${+r === last ? 'last' : ''}"><td class="num">R${String(r).padStart(2, '0')}${+r === last ? ' · 마지막' : ''}</td><td class="num">${v.uses}</td><td class="num">${v.dmg}</td></tr>`).join('') : '<tr><td colspan="3" class="mut">라운드별 기록 없음 (미사용 또는 상시 효과)</td></tr>'}

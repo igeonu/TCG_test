@@ -90,6 +90,19 @@ function drawHint(hand) {
 }
 
 /* ---------- 상태 ---------- */
+// 시작 카드 : 자기 덱의 일반·희귀 카드 중 무작위 3장 (부족하면 아무 카드로 채움)
+function dealStarters(side) {
+  const low = shuffle(side.pool.filter(id => GRADE_ORDER[EF[id].g] <= 1)), rest = shuffle(side.pool.filter(id => !low.includes(id)));
+  side.inv = [...low, ...rest].slice(0, 3); side.pool = side.pool.filter(x => !side.inv.includes(x));
+}
+// 승패 판정 : HP가 높은 쪽 → 같으면 지금까지 입힌 총 피해가 많은 쪽 → 그래도 같으면 마지막 쇼다운 승자
+function decideWinner() {
+  const a = Math.max(-999, S.me.hp), b = Math.max(-999, S.op.hp);
+  if (a !== b) return a > b;
+  const dm = s => Object.values(s.stats).reduce((t, x) => t + (x.dmg || 0), 0), da = dm(S.me), db = dm(S.op);
+  return da !== db ? da > db : !!S.lastWin;
+}
+const MAX_HIT = .5, CRIT_MAX = 40;   // 쇼다운 한 번의 피해 상한 (상대 최대 HP 대비)
 let S = null;
 function mkSide(isMe, name, deck, hp) {
   return { isMe, name, hp, maxHp: hp, shield: 0, pool: [...deck], inv: [], cd: {}, hand: [], sel: [], rr: [], rerolls: 0, dots: [], mods: [], smeltMap: {}, undyingUsed: false, storm: 0, counter: 0, immune: false, confuse: false, utilUses: 0, revealed: new Set(), stats: {}, lastUsed: null, usedOrder: 0 };
@@ -136,6 +149,7 @@ function calc(side, oth) {
     if (e.fx.joker) v = h.base >= HANDS.pair[1] ? Math.round(h.base * e.fx.joker / 100) : 0;
     if (v > 0) { bonus += v; parts.push({ src: e.id, label: e.name, t: 'b', v, pas: true }); }
   });
+  crit = Math.min(CRIT_MAX, crit);   // 일격을 여러 장 겹쳐도 치명타 확률은 최대 40%
   return { h, base: h.base, bonus, mult, crit, parts, score: Math.round((h.base + bonus) * mult) };
 }
 const fm = m => Math.round(m * 100) / 100;
@@ -175,9 +189,7 @@ Screens.battle = {
     const oppName = opts.opp || (opts.mode === '연습' ? `AI · ${DIFFS[App.diff].ko}` : pick(OPP_NAMES));
     S = { alive: Symbol(), rules, round: 0, phase: 0, mode: opts.mode || '연습', rrMode: false, fateMode: false, ended: false, busy: false, skip: false, seenCut: new Set(), tLeft: 0, tInt: null,
       me: mkSide(true, App.player.name, App.myDeck.length ? App.myDeck : DEFAULT_DECK, hp), op: mkSide(false, oppName, (opts.mode || '연습') === '연습' ? styledDeck(App.diff) : randomDeck(), hp) };
-    const start = ['♠A', '♠K', '♥7'].filter(id => S.me.pool.includes(id));
-    (start.length ? start : S.me.pool.slice(0, 3)).forEach(id => { S.me.inv.push(id); S.me.pool = S.me.pool.filter(x => x !== id); });
-    S.op.inv = shuffle(S.op.pool).slice(0, 3); S.op.pool = S.op.pool.filter(x => !S.op.inv.includes(x));
+    [S.me, S.op].forEach(dealStarters);   // 양쪽 모두 같은 규칙으로 시작 카드 3장
     $('.b-menu', el).onclick = battleMenu;
     $('#hgBtn', el).onclick = handGuideModal;
     $('#htable', el).addEventListener('click', handGuideModal);
@@ -230,10 +242,10 @@ function startTimer() {
   show();
   S.tInt = setInterval(() => {
     if (!live(tok)) { stopTimer(); return; }
-    if ($('#layer .mwrap') || S.busy) return;
+    if ($('#layer .mwrap.lock') || S.busy) return;   // 드래프트·교체·예측 창만 시간 정지 (가이드·상세 창은 계속 흐름)
     S.tLeft--; show(); if (S.tLeft <= 10 && S.tLeft > 0) Sfx.play('tick', .5);
     if (S.tLeft <= 0) {
-      stopTimer(); toast('시간 초과 · 자동으로 제출합니다', 'err');
+      stopTimer(); closeModal(true); toast('시간 초과 · 자동으로 제출합니다', 'err');
       S.fateMode = false; S.rrMode = false; S.me.rr = [];
       if (S.me.sel.length !== 5) S.me.sel = best5(S.me.hand);
       S.phase = 3; renderAll(); evPrep(); resolve();
@@ -248,12 +260,13 @@ function renderSteps() {
 }
 // 전황에 따라 배경음악·화면 분위기 전환 : 우세 / 열세 / 접전(양쪽 HP 위기)
 const MOOD_INFO = { lead: ['우세', '승기를 잡았습니다!'], behind: ['열세', '밀리고 있습니다 — 반격하세요'], clutch: ['접전', '양쪽 모두 벼랑 끝!'] };
+// 들어갈 때와 나올 때 기준을 다르게 해(히스테리시스) 경계에서 매 라운드 오락가락하지 않게 함
 function battleMood() {
   if (!S || S.ended || !S.round) return 'calm';
-  const a = S.me.hp / S.me.maxHp, b = S.op.hp / S.op.maxHp;
-  if (a <= .35 && b <= .35) return 'clutch';
-  if (a - b >= .3) return 'lead';
-  if (b - a >= .3) return 'behind';
+  const a = S.me.hp / S.me.maxHp, b = S.op.hp / S.op.maxHp, cur = S.mood, gap = a - b;
+  if (cur === 'clutch' ? (a <= .45 && b <= .45) : (a <= .35 && b <= .35)) return 'clutch';
+  if (gap >= (cur === 'lead' ? .2 : .3)) return 'lead';
+  if (-gap >= (cur === 'behind' ? .2 : .3) || a <= .3) return 'behind';   // 내 HP 30% 이하(위험)도 열세 음악
   return 'calm';
 }
 function updateMood() {
@@ -261,7 +274,7 @@ function updateMood() {
   const m = battleMood(); if (m === S.mood) return;
   const prev = S.mood; S.mood = m; Music.setMood(m);
   bt.classList.remove('mood-lead', 'mood-behind', 'mood-clutch'); if (m !== 'calm') bt.classList.add('mood-' + m);
-  if (m !== 'calm' && prev !== undefined) { addLog(`<b>전황 · ${MOOD_INFO[m][0]}</b> ${MOOD_INFO[m][1]}`); if (m === 'clutch') { Sfx.play('danger'); BG.pulse(1); } }
+  if (m !== 'calm' && prev !== undefined) { addLog(`<b>전황 · ${MOOD_INFO[m][0]}</b> ${MOOD_INFO[m][1]}`); if (m === 'clutch') { if (!S.dangerOn) Sfx.play('danger'); BG.pulse(1); } }
 }
 function renderHUD(side) {
   const el = side.isMe ? $('#hudMe') : $('#hudOp'); if (!el) return;
@@ -278,7 +291,7 @@ function renderHUD(side) {
   if (side.isMe && $('#bt')) {
     const danger = pct <= 30 && side.hp > 0 && !S.ended;
     if (danger && !S.dangerOn) { Sfx.play('danger'); toast('위험! HP가 30% 이하입니다', 'err'); }
-    S.dangerOn = danger; $('#bt').classList.toggle('danger', danger); Music.setIntense(danger);
+    S.dangerOn = danger; $('#bt').classList.toggle('danger', danger);
   }
   updateMood();
   const st = [];
@@ -408,7 +421,7 @@ async function startRound() {
   }
   renderAll();
   if (checkDeath()) return;
-  if (S.rules.turnLimit && S.round > S.rules.turnLimit) { endBattle(S.me.hp >= S.op.hp, '턴 제한 도달'); return; }
+  if (S.rules.turnLimit && S.round > S.rules.turnLimit) { endBattle(decideWinner(), '턴 제한 도달'); return; }
   Sfx.play('round'); BG.pulse(.6);
   FX.banner(`ROUND ${S.round}`, S.round === 1 ? `${S.me.name} VS ${S.op.name}` : (S.rules.turnLimit ? `남은 턴 ${S.rules.turnLimit - S.round + 1}` : '다음 라운드'), S.round === 1 ? C.red : C.yellow, 'round');
   ev(`<div class="ev-k"><b class="pix">01</b> 라운드 시작 <span class="ev-r num">ROUND ${S.round}</span></div>
@@ -439,8 +452,8 @@ function openDraft() {
     $('#dmPrev', w).innerHTML = `<h3>장착 후 예상 상태</h3>
       <div class="pv-r"><span>효과 인벤토리</span><b class="num">${S.me.inv.length}/${slotsOf(S.me)} → ${full ? '<em class="r">가득 참 · 교체 필요</em>' : `${after.length}/${slotsOf({ inv: after })}`}</b></div>
       <div class="pv-r"><span>액티브 / 패시브</span><b class="num">${deckInfo(after).A} / ${deckInfo(after).P}</b></div>
-      <div class="pv-e"><b>${e.suit}${e.rank} ${e.name}</b><p>${e.desc}</p><small>${e.k === 'A' ? `액티브 · 쿨타임 ${e.cd}턴 · 획득 즉시 사용 가능` : '패시브 · 장착 즉시 상시 적용 (상대에게 공개)'}</small></div>`;
-    $('#dmOk b', w).textContent = `선택 확정 · ${e.suit}${e.rank} 획득`;
+      <div class="pv-e"><b>${codeHTML(e)} ${e.name}</b><p>${e.desc}</p><small>${e.k === 'A' ? `액티브 · 쿨타임 ${e.cd}턴 · 획득 즉시 사용 가능` : '패시브 · 장착 즉시 상시 적용 (상대에게 공개)'}</small></div>`;
+    $('#dmOk b', w).textContent = `선택 확정 · ${codeTxt(e)} 획득`;
   };
   $$('.dm-c', w).forEach(c => c.onclick = () => { if (revealing) return; if (idx !== +c.dataset.i) { Sfx.play('select'); const p = FX.center(c); burst(p.x, p.y, ['#ffe08a', '#fff'], 12, 90); } idx = +c.dataset.i; upd(); });
   $('#dmOk', w).onclick = async () => {
@@ -483,13 +496,13 @@ async function equip(id, srcEl) {
   const card = $(`#fanMe .ec[data-id="${CSS.escape(id)}"]`);
   if (card) { Sfx.play('coin'); setTimeout(() => { const p = FX.center(card); FX.ring(p.x, p.y, '#ffe08a', 240, 500, 8); burst(p.x, p.y, ['#ffe08a', '#fff'], 20, 120); }, 450); }
   if (card && r) { const t = App.rectOf(card); card.animate([{ transform: `translate(${r.x - t.x}px,${r.y - t.y}px) scale(1.1)`, opacity: .4 }, { transform: getComputedStyle(card).transform, opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.2,1.1,.4,1)' }); card.classList.add('new'); }
-  addLog(`<b>획득</b> · ${EF[id].suit}${EF[id].rank} ${EF[id].name}`);
+  addLog(`<b>획득</b> · ${codeHTML(EF[id])} ${EF[id].name}`);
   await pace(600); deal();
 }
 function openReplace(newId, celebrate = false) {
   const ne = EF[newId]; let pi = -1;
   const w = modal(`<div class="rep">
-    <div class="rp-h"><span class="tagb pix">FULL ${S.me.inv.length}/${slotsOf(S.me)}</span><b>빈 슬롯이 없습니다. ${ne.suit}${ne.rank} ${ne.name}을(를) 받으려면 기존 카드 1장을 버리세요.</b></div>
+    <div class="rp-h"><span class="tagb pix">FULL ${S.me.inv.length}/${slotsOf(S.me)}</span><b>빈 슬롯이 없습니다. ${codeHTML(ne)} ${ne.name}을(를) 받으려면 기존 카드 1장을 버리세요.</b></div>
     <div class="rp-t"><h3>기존 장착</h3><span class="tagb" id="rpChip">버릴 카드를 선택하세요</span></div>
     <div class="rp-cards">${S.me.inv.map((id, i) => `<div class="rp-c" data-i="${i}">${cardHTML(EF[id])}</div>`).join('')}</div>
     <div class="rp-b"><div class="rp-new">${cardHTML(ne)}</div><div class="rp-prev" id="rpPrev"><h3>교체 미리보기</h3><p class="mut">버릴 카드를 고르면 얻는 효과와 잃는 효과를 비교해 보여줍니다.</p></div></div>
@@ -497,8 +510,8 @@ function openReplace(newId, celebrate = false) {
   $$('.rp-c', w).forEach(c => c.onclick = () => {
     pi = +c.dataset.i; $$('.rp-c', w).forEach(x => x.classList.toggle('on', x === c));
     const old = EF[S.me.inv[pi]];
-    $('#rpChip', w).textContent = `${old.suit}${old.rank} ${old.name} 버리기`;
-    $('#rpPrev', w).innerHTML = `<h3>교체 미리보기 · ${old.suit}${old.rank} → ${ne.suit}${ne.rank}</h3>
+    $('#rpChip', w).textContent = `${codeTxt(old)} ${old.name} 버리기`;
+    $('#rpPrev', w).innerHTML = `<h3>교체 미리보기 · ${codeHTML(old)} → ${codeHTML(ne)}</h3>
       <div class="pv-r"><span>장착</span><b class="num">${S.me.inv.length}/${slotsOf(S.me)} → ${S.me.inv.length}/${slotsOf({ inv: S.me.inv.map((id, i) => i === pi ? newId : id) })}</b></div>
       <div class="cmp"><div class="gain"><small>얻는 효과</small><b>${ne.name}</b><p>${ne.desc}</p></div><div class="lose"><small>잃는 효과</small><b>${old.name}</b><p>${old.desc}${S.me.cd[old.id] ? ` (쿨타임 ${S.me.cd[old.id]}턴 남음)` : ''}</p></div></div>`;
     $('#rpOk', w).disabled = false;
@@ -810,7 +823,9 @@ async function resolve() {
       kicker = `${i === 1 ? '높은 숫자' : '키커'} ${pvName(a[i])} > ${pvName(b[i])}`;
     }
   }
-  const lose = win ? other(win) : null, diff = kicker ? KICKER_DMG : Math.abs(sA - sB);
+  S.lastWin = win ? win.isMe : S.lastWin;
+  const lose = win ? other(win) : null, raw = kicker ? KICKER_DMG : Math.abs(sA - sB), cap = lose ? Math.round(lose.maxHp * MAX_HIT) : raw, diff = Math.min(raw, cap);
+  if (raw > cap) addLog(`<b>피해 상한</b> · ${raw} → ${cap} (최대 HP의 ${MAX_HIT * 100}%)`);
   if (App.battleOpt.forecast && !S.skip) await forecast(sA, sB, A, B, win, diff, kicker);
   if (!live(tok)) return;
   const box = $('#ev');
@@ -839,7 +854,7 @@ async function resolve() {
     const dealt = applyDamage(lose, diff, { pierce, brk, big: true });
     attribute(win, win === me ? A : B, dealt, kicker);
     addLog(kicker ? `${win.isMe ? '내' : '상대'} 키커 승리 · ${kicker} → ${lose.isMe ? '나' : '상대'} HP -${dealt}`
-      : `${win.isMe ? '내' : '상대'} 승리 · ${Math.max(sA, sB)} - ${Math.min(sA, sB)} = <b class="r">${diff}</b> → ${lose.isMe ? '나' : '상대'} HP -${dealt}`);
+      : `${win.isMe ? '내' : '상대'} 승리 · ${Math.max(sA, sB)} - ${Math.min(sA, sB)} = <b class="r">${raw}</b>${raw > diff ? ` (상한 ${diff})` : ''} → ${lose.isMe ? '나' : '상대'} HP -${dealt}`);
     await pace(dealt / lose.maxHp >= .2 ? 420 : 200); if (!live(tok)) return;
     if (dealt / lose.maxHp >= .2) await FX.banner(dealt / lose.maxHp >= .35 ? 'DEVASTATING!' : 'BIG HIT!', `${dealt} 피해`, C.red, 'hot');
     await pace(650); if (!live(tok)) return;
@@ -861,7 +876,7 @@ async function resolve() {
   }
   box.classList.remove('clash'); renderAll();
   if (checkDeath()) return;
-  if (S.rules.turnLimit && S.round >= S.rules.turnLimit) { await pace(700); if (live(tok)) endBattle(me.hp >= op.hp, '턴 제한 도달'); return; }
+  if (S.rules.turnLimit && S.round >= S.rules.turnLimit) { await pace(700); if (live(tok)) endBattle(decideWinner(), '턴 제한 도달'); return; }
   await pace(500); if (!live(tok)) return;
   S.busy = false; S.skip = false;
   ev(`<div class="ev-k"><b class="pix">04</b> 피해 정산 결과 <span class="ev-r num">ROUND ${S.round}</span></div>
@@ -934,7 +949,12 @@ function checkDeath() {
     s.undyingUsed = true; s.hp = 1; stat(s, '♥J', 'uses', 1);
     popAt(s.isMe ? $('#hudMe') : $('#hudOp'), '불사! HP 1로 생존', 'gold'); addLog(`<b>불사</b> 발동 · ${s.isMe ? '나' : '상대'} HP 1`); renderHUD(s);
   }
-  if (S.me.hp <= 0 || S.op.hp <= 0) { setTimeout(() => endBattle(S.op.hp <= 0 && S.me.hp > 0, 'HP 0'), 900); return true; }
+  if (S.me.hp <= 0 || S.op.hp <= 0) {
+    // 예약 시점의 판(tok)에서만 종료 — 그사이 로비로 나가 새 판을 시작했다면 무시
+    const tok = S.alive, both = S.me.hp <= 0 && S.op.hp <= 0;
+    App.after(() => { if (live(tok)) endBattle(both ? decideWinner() : S.op.hp <= 0, both ? '동시 KO' : 'HP 0'); }, 900);
+    return true;
+  }
   return false;
 }
 
@@ -963,7 +983,7 @@ function endBattle(win, why) {
     ${btn('명예의 전당 →', 'HALL OF FAME', win ? C.blue : C.red, '', 'big')}`;
   $('#layer').appendChild(ov);
   $('#bt') && $('#bt').classList.remove('danger');
-  Music.setIntense(false); Music.setMood('calm'); Music.play(win ? 'win' : 'lose');
+  Music.setMood('calm'); Music.play(win ? 'win' : 'lose');
   if (win) { Sfx.play('win'); FX.flash('#ffe08a', .6, 500); setTimeout(() => { burst(720, 330, ['#ffe08a', '#fff', C.blue, C.red], 80, 420); FX.ring(720, 330, '#ffe08a', 900, 900, 18); }, 450); FX.confetti(220); setTimeout(() => FX.confetti(120), 1500); }
   else { Sfx.play('lose'); FX.flash('#ff2a2a', .5, 600); FX.shake(1.6); setTimeout(() => FX.crack(), 200); }
   ov.querySelector('.btn').onclick = () => { ov.remove(); App.go('fame'); };

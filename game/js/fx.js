@@ -107,7 +107,7 @@ const FX = {
     setTimeout(() => this.ring(720, 405, '#fff', 700, 700, 10), 150);
     burst(720, 405, L ? ['#ffd23f', '#fff6c8', '#fff', '#ff5a3c'] : ['#b06bff', '#e7d2ff', '#fff'], L ? 90 : 50, 460);
     if (L) { this.confetti(200); setTimeout(() => this.confetti(100), 700); }
-    this.banner(L ? 'LEGENDARY!' : 'EPIC!', `${e.suit}${e.rank} ${e.name} 획득`, L ? '#e6a33c' : '#7d4cc4', L ? 'rainbow' : '');
+    this.banner(L ? 'LEGENDARY!' : 'EPIC!', `${codeTxt(e)} ${e.name} 획득`, L ? '#e6a33c' : '#7d4cc4', L ? 'rainbow' : '');
     await pace(1650);
   },
 };
