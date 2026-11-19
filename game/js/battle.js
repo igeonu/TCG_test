@@ -190,7 +190,11 @@ function renderHUD(side) {
   $('.fill', el).style.width = pct + '%'; $('.trail', el).style.width = pct + '%';
   $('.shb', el).style.width = clamp(side.shield / side.maxHp * 100, 0, 100) + '%';
   $('.hp-v', el).textContent = Math.max(0, side.hp); el.classList.toggle('low', pct <= 30);
-  if (side.isMe && $('#bt')) $('#bt').classList.toggle('danger', pct <= 30 && side.hp > 0);
+  if (side.isMe && $('#bt')) {
+    const danger = pct <= 30 && side.hp > 0 && !S.ended;
+    if (danger && !S.dangerOn) { Sfx.play('danger'); toast('위험! HP가 30% 이하입니다', 'err'); }
+    S.dangerOn = danger; $('#bt').classList.toggle('danger', danger); Music.setIntense(danger);
+  }
   const st = [];
   if (side.shield > 0) st.push(`<span class="st sh">실드 ${side.shield}</span>`);
   side.dots.forEach(d => st.push(`<span class="st dot">지속 피해 ${d.dmg} · ${d.turns}턴</span>`));
@@ -657,7 +661,7 @@ function applyDamage(t, dmg, o = {}) {
     else if (o.brk && rnd(100) < o.brk) { popAt(hud, '실드 파괴!', 'opfx'); t.shield = 0; }
     else {
       const ab = Math.min(t.shield, dmg); t.shield -= ab; dmg -= ab;
-      if (ab) { const p = FX.center(hud); setTimeout(() => { popAt(hud, `실드 -${ab}`, 'shield'); FX.ring(p.x, p.y, '#9cc2ff', 300, 450, 10); burst(p.x, p.y, ['#9cc2ff', '#fff'], 18, 140); Sfx.play('shield'); }, 120); }
+      if (ab) { const p = FX.center(hud); setTimeout(() => { popAt(hud, `실드 -${ab}`, 'shield'); FX.ring(p.x, p.y, '#9cc2ff', 300, 450, 10); burst(p.x, p.y, ['#9cc2ff', '#fff'], 18, 140); Sfx.play('shieldBreak'); }, 120); }
     }
   }
   const beforePct = clamp(t.hp / t.maxHp * 100, 0, 100);
@@ -666,7 +670,7 @@ function applyDamage(t, dmg, o = {}) {
   if (dmg > 0) {
     const ratio = dmg / t.maxHp, power = clamp(.6 + ratio * 5, .6, 2.6), p = FX.center(hud), heavy = o.big || ratio >= .12;
     FX.hitstop(heavy ? 100 : 45);
-    Sfx.play(heavy ? 'bighit' : 'hit');
+    Sfx.play(ratio >= .3 ? 'devastating' : heavy ? 'bighit' : 'hit'); if (heavy) Music.duck(ratio >= .3 ? 1.6 : .7);
     FX.flash(t.isMe ? '#ff2a2a' : '#ffffff', heavy ? .5 : .3, heavy ? 320 : 200);
     FX.ring(p.x, p.y, t.isMe ? C.red : '#ffe08a', 360 + ratio * 600, 520, 14);
     FX.ring(p.x, p.y, '#fff', 200 + ratio * 300, 380, 8);
@@ -732,6 +736,7 @@ function endBattle(win, why) {
     ${btn('명예의 전당 →', 'HALL OF FAME', win ? C.blue : C.red, '', 'big')}`;
   $('#layer').appendChild(ov);
   $('#bt') && $('#bt').classList.remove('danger');
+  Music.setIntense(false); Music.play(win ? 'win' : 'lose');
   if (win) { Sfx.play('win'); FX.flash('#ffe08a', .6, 500); setTimeout(() => { burst(720, 330, ['#ffe08a', '#fff', C.blue, C.red], 80, 420); FX.ring(720, 330, '#ffe08a', 900, 900, 18); }, 450); FX.confetti(220); setTimeout(() => FX.confetti(120), 1500); }
   else { Sfx.play('lose'); FX.flash('#ff2a2a', .5, 600); FX.shake(1.6); setTimeout(() => FX.crack(), 200); }
   ov.querySelector('.btn').onclick = () => { ov.remove(); App.go('fame'); };

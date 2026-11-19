@@ -19,7 +19,9 @@ input{font-family:inherit}
 #stage{position:absolute;width:1440px;height:810px;transform-origin:0 0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,var(--felt2),var(--felt) 60%,var(--deep));box-shadow:0 20px 60px rgba(0,0,0,.7)}
 #screens,#chrome,#layer,#toasts{position:absolute;inset:0}
 #chrome{pointer-events:none;z-index:20}#chrome .pe{pointer-events:auto}
-#layer{z-index:30;pointer-events:none}#layer>*{pointer-events:auto}
+#layer{z-index:30;pointer-events:none}#layer>.mwrap,#layer>.endov{pointer-events:auto}
+/* 이펙트(파티클·섬광·배너·팝업 등)는 절대 클릭을 가로채지 않음 */
+#layer>:not(.mwrap):not(.endov),#layer>:not(.mwrap):not(.endov) *{pointer-events:none!important}
 #toasts{z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;padding-top:84px;gap:8px}
 .screen{position:absolute;left:0;right:0;top:64px;bottom:72px;overflow:hidden}
 .screen.full{top:0;bottom:0}

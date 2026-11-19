@@ -2,70 +2,8 @@
 /* =========================================================
    FX – 효과음(WebAudio 합성) · 타격감 · 배너 · 파티클 · 배경
    ========================================================= */
-const FXOPT = Object.assign({ sfx: true, shake: 'normal' }, (typeof store !== 'undefined' && store.get('fxOpt', {})) || {});
+const FXOPT = Object.assign({ shake: 'normal' }, store.get('fxOpt', {}));
 const saveFxOpt = () => store.set('fxOpt', FXOPT);
-
-/* ---------- 효과음 (파일 없이 합성) ---------- */
-const Sfx = {
-  ctx: null, master: null, lastHover: 0,
-  init() {
-    if (!this.ctx) {
-      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.master = this.ctx.createGain(); this.master.gain.value = .32; this.master.connect(this.ctx.destination); } catch (e) { return; }
-    }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-  },
-  tone(f, dur, type = 'square', vol = .25, slide = 0, delay = 0) {
-    const c = this.ctx, t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.setValueAtTime(f, t);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f * slide), t + dur);
-    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + .03);
-  },
-  noise(dur, vol = .3, freq = 2000, delay = 0, endFreq) {
-    const c = this.ctx, t = c.currentTime + delay, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-    s.buffer = b; f.type = 'lowpass'; f.frequency.setValueAtTime(freq, t); if (endFreq) f.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + .02);
-  },
-  play(n, p = 1) {
-    if (!FXOPT.sfx || !this.ctx || this.ctx.state !== 'running') return;
-    const T = (...a) => this.tone(...a), N = (...a) => this.noise(...a);
-    switch (n) {
-      case 'hover': { const now = performance.now(); if (now - this.lastHover < 60) return; this.lastHover = now; T(1400, .04, 'triangle', .05); break; }
-      case 'click': T(520, .06, 'square', .12, 1.6); N(.04, .08, 5000); break;
-      case 'tab': N(.18, .12, 900, 0, 4000); T(300, .12, 'triangle', .08, 2); break;
-      case 'power': N(.25, .15, 400, 0, 6000); T(80, .3, 'sawtooth', .08, 6); break;
-      case 'open': T(440, .08, 'triangle', .12, 1.5); T(660, .1, 'triangle', .1, 1.5, .05); break;
-      case 'pop': T(900, .07, 'triangle', .14, 1.4); break;
-      case 'error': T(150, .14, 'square', .16, .7); T(140, .14, 'square', .12, .7, .08); break;
-      case 'deal': N(.06, .14, 6000, 0, 1500); T(1800 + rnd(400), .03, 'triangle', .05); break;
-      case 'flip': N(.08, .16, 3500, 0, 800); T(700 + rnd(300), .05, 'square', .06, 1.5); break;
-      case 'select': T(660, .07, 'square', .12, 1.5); T(990, .08, 'triangle', .1, 1, .04); break;
-      case 'deselect': T(700, .08, 'square', .1, .6); break;
-      case 'mark': T(1200, .05, 'square', .08, .8); break;
-      case 'reroll': for (let i = 0; i < 5; i++) T(400 + i * 160, .06, 'square', .08, 1.2, i * .04); N(.25, .1, 3000, 0, 600); break;
-      case 'confirm': T(523, .1, 'square', .12); T(784, .14, 'square', .12, 1, .07); break;
-      case 'activate': T(220, .35, 'sawtooth', .14, 4); [523, 659, 784, 1047].forEach((f, i) => T(f, .12, 'square', .1, 1, .06 + i * .05)); N(.3, .12, 8000, 0, 500); break;
-      case 'passive': T(1318, .25, 'triangle', .1); T(1975, .3, 'sine', .06, 1, .03); break;
-      case 'tick': T(1000 + p * 600, .025, 'square', .05); break;
-      case 'clash': N(.3, .35, 4000, 0, 200); T(110, .3, 'sawtooth', .2, .4); T(1600, .12, 'square', .08, .5); break;
-      case 'hit': N(.25, .4, 2500, 0, 120); T(160, .25, 'sine', .45, .3); T(90, .2, 'square', .1, .5); break;
-      case 'bighit': N(.5, .55, 5000, 0, 80); T(120, .5, 'sine', .6, .25); T(60, .45, 'sawtooth', .25, .5); T(900, .1, 'square', .1, .3); break;
-      case 'crit': T(300, .4, 'sawtooth', .16, 5); N(.4, .2, 9000, 0, 1000); T(1568, .3, 'square', .08, 1, .15); break;
-      case 'heal': [523, 659, 784, 1047, 1319].forEach((f, i) => T(f, .18, 'triangle', .1, 1, i * .05)); break;
-      case 'shield': T(330, .4, 'sine', .2, 2.2); T(660, .3, 'triangle', .08, 1.5, .08); N(.2, .08, 2000); break;
-      case 'round': T(392, .12, 'square', .12); T(523, .12, 'square', .12, 1, .1); T(784, .25, 'square', .12, 1, .2); N(.4, .1, 1500, 0, 6000); break;
-      case 'banner': N(.3, .12, 800, 0, 8000); T(200, .25, 'sawtooth', .08, 3); break;
-      case 'match': T(784, .12, 'square', .14); T(1047, .12, 'square', .14, 1, .1); T(1568, .3, 'square', .12, 1, .2); break;
-      case 'win': [523, 659, 784, 1047, 784, 1047, 1319, 1568].forEach((f, i) => T(f, i === 7 ? .6 : .14, 'square', .12, 1, i * .1)); break;
-      case 'lose': [392, 349, 311, 262].forEach((f, i) => T(f, i === 3 ? .7 : .22, 'square', .12, i === 3 ? .5 : 1, i * .2)); N(.6, .2, 300, .6); break;
-      case 'coin': T(988, .06, 'square', .1); T(1319, .2, 'square', .1, 1, .06); break;
-      case 'whoosh': N(.3, .14, 600, 0, 5000); break;
-    }
-  },
-};
 
 /* ---------- 시각 효과 ---------- */
 const FX = {

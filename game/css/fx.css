@@ -86,3 +86,21 @@
 /* 턴 타이머 */
 .tchip.timer{background:var(--blue);color:#fff}
 .tchip.timer.warn{background:var(--red);animation:blink .5s steps(1) infinite}
+
+/* 클릭 판정 안정화 : 눌림·호버로 버튼이 움직여도 클릭이 빠지지 않도록 판정 영역을 넓힘 */
+.btn::before,.row-btn::before,.chip::before,.hc::before,.seg2 button::before,.tabbar button::before{content:"";position:absolute;inset:-9px -3px}
+.chip,.hc,.seg2 button,.tabbar button{position:relative}
+.mc:hover{transform:scale(1.06)}
+.oc:hover{transform:none;border-color:var(--gold)}
+.row-btn:hover{transform:translateX(4px)}
+
+/* 사운드 설정 */
+.vol{display:grid;grid-template-columns:70px 1fr 40px;align-items:center;gap:10px;font-size:13px;font-weight:700}
+.vol b{font-size:22px;text-align:right}
+.vol input[type=range]{-webkit-appearance:none;appearance:none;height:10px;border-radius:5px;background:var(--pan2);border:2px solid #fff;cursor:pointer}
+.vol input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--gold);border:3px solid var(--ink);box-shadow:2px 2px 0 rgba(0,0,0,.4)}
+.vol input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--gold);border:3px solid var(--ink)}
+.hd-snd{margin-left:16px;border:0;border-radius:8px;background:var(--gray);width:40px;height:34px;font-size:17px;box-shadow:0 4px 0 #222a27}
+.hd-snd.off{background:var(--red);box-shadow:0 4px 0 #8f2a17}
+.hd-snd:active{transform:translateY(4px);box-shadow:none}
+.hd-snd+.hd-set{margin-left:8px}

@@ -33,11 +33,12 @@ const App = {
     this.diff = store.get('diff', 'normal'); if (!DIFFS[this.diff]) this.diff = 'normal';
     $('#chrome').innerHTML = `
       <header class="hd pe"><div class="hd-logo">RUNE DUEL<small>룬 결투</small></div><span class="hd-where" id="hdWhere"></span>
-        <div class="hd-prof"><span class="av"></span><div><b>${this.player.name}</b><small>LV. ${this.player.lv}</small></div><button class="hd-set" id="hdSet">설정</button></div></header>
+        <div class="hd-prof"><span class="av"></span><div><b>${this.player.name}</b><small>LV. ${this.player.lv}</small></div><button class="hd-snd ${AOPT.mute ? 'off' : ''}" id="hdSnd" title="${AOPT.mute ? '소리 켜기' : '음소거'}">${AOPT.mute ? '🔇' : '🔊'}</button><button class="hd-set" id="hdSet">설정</button></div></header>
       <nav class="tabbar pe">${TABS.map(([s, t, ic]) => `<button data-s="${s}">${ui(ic, 24)}<span>${t}</span></button>`).join('')}<i class="tab-ind"></i></nav>
       <div class="crt"></div><div class="vig"></div>`;
     $$('.tabbar button').forEach(b => b.onclick = () => { if (this.screen !== b.dataset.s) { juice(b); this.go(b.dataset.s); } });
     $('#hdSet').onclick = () => settingsModal();
+    $('#hdSnd').onclick = () => setMute(!AOPT.mute);
     window.addEventListener('resize', () => this.fit());
     document.addEventListener('keydown', e => {
       if (e.target && e.target.matches && e.target.matches('input,textarea,select') && e.key !== 'Escape') return;
@@ -51,6 +52,7 @@ const App = {
       if (b && !b.contains(e.relatedTarget)) Sfx.play('hover');
     });
     BG.init();
+    setTimeout(() => { if (!AU.ctx && !AOPT.mute) toast('🔊 화면을 한 번 클릭하면 배경음악과 효과음이 켜집니다'); }, 900);
     this.fit();
     this.go('home', {}, true);
   },
@@ -71,6 +73,7 @@ const App = {
     el.innerHTML = S.html(opts);
     host.appendChild(el);
     const from = this.screen; this.screen = screen;
+    if (screen === 'battle') Music.play('battle'); else if (screen !== 'fame' && screen !== 'report') { Music.play('lobby'); Music.setIntense(false); }
     const ch = $('#chrome'); ch.classList.toggle('bare', !!S.full);
     $('#hdWhere').textContent = S.title || '';
     const i = tabIdx(S.tab || 'home');
@@ -146,7 +149,8 @@ function burst(x, y, colors = ['#fff'], n = 16, spread = 110) {
 function juice(btn) {
   const r = App.rectOf(btn), c = getComputedStyle(btn).getPropertyValue('--c').trim() || '#ffe08a';
   burst(r.x + r.w / 2, r.y + r.h / 2, [c, '#fff', '#ffe08a'], 12, 80);
-  $('#screens').animate([{ transform: 'translate(0,0)' }, { transform: 'translate(-2px,2px)' }, { transform: 'translate(2px,-1px)' }, { transform: 'none' }], { duration: 150 });
+  // 클릭 도중 화면을 흔들면 버튼이 커서 밑에서 벗어나 클릭이 빠질 수 있어, 버튼 자체만 살짝 튕김
+  btn.animate([{ scale: 1 }, { scale: .94 }, { scale: 1 }], { duration: 160 });
 }
 function shake(el, cls = 'shake') { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 600); }
 function bump(el) { if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
@@ -168,6 +172,10 @@ function hideTip() { const t = $('#tip'); t && t.classList.remove('show'); }
 const btn = (label, sub, color, attrs = '', cls = '') => `<button class="btn ${cls}" style="--c:${color}" ${attrs}><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</button>`;
 const C = { red: '#ff5a3c', blue: '#2a6bbd', yellow: '#e6a33c', purple: '#7d4cc4', gray: '#3f4c47', green: '#2fa36b' };
 
+function setMute(v) {
+  AOPT.mute = v; saveAOPT(); AU.init(); AU.apply();
+  const b = $('#hdSnd'); if (b) { b.classList.toggle('off', v); b.textContent = v ? '🔇' : '🔊'; b.title = v ? '소리 켜기' : '음소거'; }
+}
 function settingsModal() {
   const o = App.battleOpt;
   const seg = (k, opts) => `<div class="seg" data-k="${k}">${opts.map(([v, t]) => `<button data-v="${v}" class="${String(o[k]) === String(v) ? 'on' : ''}">${t}</button>`).join('')}</div>`;
@@ -175,14 +183,22 @@ function settingsModal() {
     <label>효과 카드 강조 방식 <small>(마우스를 올렸을 때)</small></label>${seg('hl', [['size', '크기 변화'], ['border', '테두리 색'], ['both', '둘 다']])}
     <label>쿨타임 표시</label>${seg('cd', [['lock', '자물쇠'], ['hourglass', '모래시계'], ['tint', '색상 변환']])}
     <label>피해 정산 연출</label>${seg('forecast', [[true, '전투 예측 먼저'], [false, '바로 정산']])}
-    <label>효과음</label><div class="seg" data-fx="sfx">${[[true, '켜기'], [false, '끄기']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.sfx === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <label>사운드</label>
+    <div class="vol"><span>효과음</span><input type="range" min="0" max="100" value="${Math.round(AOPT.sfx * 100)}" data-a="sfx"><b class="num">${Math.round(AOPT.sfx * 100)}</b></div>
+    <div class="vol"><span>배경음악</span><input type="range" min="0" max="100" value="${Math.round(AOPT.music * 100)}" data-a="music"><b class="num">${Math.round(AOPT.music * 100)}</b></div>
+    <div class="seg" data-mute="1">${[[false, '소리 켜기'], [true, '전체 음소거']].map(([v, t]) => `<button data-v="${v}" class="${AOPT.mute === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>화면 흔들림 · 타격감 <small>(멀미가 나면 줄이세요)</small></label><div class="seg" data-fx="shake">${[['off', '끄기'], ['normal', '보통'], ['strong', '강하게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.shake === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="setm-f">${btn('기록 초기화', '', C.gray, 'id="stReset"')}${btn('닫기', '', C.blue, 'id="stX"')}</div></div>`, { cls: 'm-set' });
   $$('.seg', w).forEach(sg => sg.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; let v = b.dataset.v; if (v === 'true') v = true; if (v === 'false') v = false;
     if (sg.dataset.fx) { FXOPT[sg.dataset.fx] = v; saveFxOpt(); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); if (sg.dataset.fx === 'shake') FX.shake(1); Sfx.play('confirm'); return; }
+    if (sg.dataset.mute) { setMute(v); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); Sfx.play('confirm'); return; }
     o[sg.dataset.k] = v; store.set('battleOpt', o); $$('button', sg).forEach(x => x.classList.toggle('on', x === b));
     const bt = $('#bt'); if (bt) bt.className = bt.className.replace(/hl-\w+/, 'hl-' + o.hl).replace(/cd-\w+/, 'cd-' + o.cd);
+  });
+  $$('.vol input', w).forEach(r => {
+    r.oninput = () => { AOPT[r.dataset.a] = r.value / 100; r.nextElementSibling.textContent = r.value; AU.apply(); saveAOPT(); };
+    r.onchange = () => { if (r.dataset.a === 'sfx') Sfx.play('coin'); };
   });
   $('#stX', w).onclick = () => closeModal();
   $('#stReset', w).onclick = () => { App.history = [...SAMPLE_HISTORY]; App.myDeck = [...DEFAULT_DECK]; toast('기록과 덱을 처음 상태로 되돌렸습니다'); closeModal(); if (Screens[App.screen].tab) App.go(App.screen); };
