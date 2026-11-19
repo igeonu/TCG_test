@@ -16,12 +16,7 @@
 .pip.flip{transform:translate(-50%,-50%) rotate(180deg)}
 .pc-ace{position:absolute;left:50%;top:50%;width:58cqw;height:58cqw;transform:translate(-50%,-50%)}
 .pc-ace .f{fill:currentColor}.pc-ace .w{fill:#fff}
-.pc-fbox{position:absolute;left:17cqw;right:17cqw;top:11cqh;bottom:11cqh}
-.pc-face{width:100%;height:100%;display:block}
-.pc-face use{fill:inherit}
-.pc.red .pc-face .glow{filter:drop-shadow(0 0 2px rgba(255,90,100,.95))}
-.pc:not(.red) .pc-face .glow{filter:drop-shadow(0 0 2px rgba(150,170,255,.95))}
-/* 완성 일러스트 그림 카드 (J◆ · K◆ · K♣) */
+/* 그림 카드 J·Q·K 12장 : 일러스트 이미지 */
 .pc.img{border:none;background:transparent}
 .pc-img{position:absolute;inset:0;border-radius:inherit;background:center/100% 100% no-repeat}
 /* 홈 화면 장식 카드 */

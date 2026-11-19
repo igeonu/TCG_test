@@ -190,31 +190,18 @@ const PIPS = (() => {
   return { 2: [[C, T], [C, B]], 3: [[C, T], [C, M], [C, B]], 4: lr([T, B]), 5: [...lr([T, B]), [C, M]], 6: lr([T, M, B]), 7: [...lr([T, M, B]), [C, 34.5]],
     8: [...lr([T, M, B]), [C, 34.5], [C, 65.5]], 9: [...lr([T, r1, r2, B]), [C, M]], 10: [...lr([T, r1, r2, B]), [C, 29], [C, 71]] };
 })();
-const FACE_IMG = { 'J◆': 'JD', 'K◆': 'KD', 'K♣': 'KC' };   // 완성된 그림 카드 일러스트
+// 그림 카드(J·Q·K) 일러스트 : assets/cards/{J|Q|K}{S|H|C|D}.webp — 12장 모두 완성본
+const FACE_IMG = c => 'JQK'.includes(c.r) ? c.r + SK[c.s] : null;
 function aceArt(s) {
   const k = SK[s], u = (sc, cls) => `<use href="#su-${k}" width="20" height="20" class="${cls}" transform="translate(10 10) scale(${sc}) translate(-10 -10)"/>`;
   return `<svg class="pc-ace" viewBox="-1 -1 22 22">${u(1.08, 'f')}${u(.98, 'w')}${u(.86, 'f')}${u(.62, 'w')}${u(.3, 'f')}</svg>`;
 }
-function faceArt(r, s) {
-  const red = isRed(s), acc = red ? '#e8262c' : '#2b3fd6', dk = red ? '#8e1418' : '#16207a', st = 'stroke="#000" stroke-width="2.2" stroke-linejoin="round"';
-  const fur = '6,53 14,47 22,53 30,46 38,52 46,45 54,52 62,45 70,51 78,45 86,51 94,46 94,61 86,66 78,59 70,65 62,58 54,65 46,58 38,65 30,58 22,65 14,59 6,64';
-  const dots = [[16, 55], [27, 53], [40, 57], [52, 54], [64, 56], [76, 53], [86, 57], [33, 60], [58, 60]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#000"/>`).join('');
-  const head = r === 'K' ? `<polygon points="34,36 37,17 44,26 50,11 56,26 63,17 66,36" fill="#f2b632" ${st}/><rect x="34" y="33" width="32" height="7" fill="${acc}" ${st}/><circle cx="50" cy="22" r="2.6" fill="${acc}" stroke="#000" stroke-width="1.2"/><path d="M50 4 v6 M47 7 h6" stroke="#f2b632" stroke-width="2.4"/>`
-    : r === 'Q' ? `<path d="M36 40 C34 26 40 16 50 16 C60 16 66 26 64 40 Z" fill="${dk}" ${st}/><path d="M37 22 L41 12 L46 18 L50 8 L54 18 L59 12 L63 22 Z" fill="#f2b632" ${st}/><circle cx="50" cy="13" r="2.6" fill="#fff" stroke="#000" stroke-width="1.2"/>`
-    : `<path d="M37 40 L37 22 Q37 8 50 8 Q63 8 63 22 L63 40 Z" fill="#5d6268" ${st}/><path d="M41 24 H59 M41 28 H59" stroke="#000" stroke-width="2.4"/><circle cx="56" cy="17" r="1.6" fill="#000"/>
-       <rect x="76" y="14" width="4" height="26" fill="#5a3a1a" stroke="#000" stroke-width="1.4"/><rect x="71" y="38" width="14" height="5" fill="#f2b632" stroke="#000" stroke-width="1.6"/>`;
-  const half = `<polygon points="4,70 4,47 28,38 50,42 72,38 96,47 96,70" fill="${acc}" ${st}/><polygon points="4,70 4,60 20,56 36,66 50,58 66,67 96,57 96,70" fill="${dk}"/>
-    <polygon points="${fur}" fill="#f3e6c4" ${st}/>${dots}${head}
-    <g transform="translate(${r === 'J' ? 10 : 70} 10) scale(1.05)" class="glow"><use href="#su-${SK[s]}" width="20" height="20" fill="${red ? '#e8262c' : '#2b3fd6'}" stroke="#000" stroke-width=".9"/></g>`;
-  return `<svg class="pc-face" viewBox="0 0 100 140" preserveAspectRatio="none"><rect width="100" height="140" fill="#7f7f7f"/>${half}<g transform="rotate(180 50 70)">${half}</g>
-    <line x1="0" y1="76" x2="100" y2="64" stroke="#000" stroke-width="3"/><rect x="1.5" y="1.5" width="97" height="137" fill="none" stroke="#000" stroke-width="3"/></svg>`;
-}
 function pokerHTML(c, extra = '', attrs = '') {
-  const red = isRed(c.s), img = FACE_IMG[c.r + c.s];
+  const red = isRed(c.s), img = FACE_IMG(c);
   // 일러스트 카드도 모서리 인덱스는 코드로 크게 덧그려 다른 카드와 같은 크기로 읽히게 함
   if (img) return `<div class="pc img ${red ? 'red' : ''} ${extra}" ${attrs}><span class="pc-img" style="background-image:url(assets/cards/${img}.webp)"></span><span class="pc-tl"><b>${c.r}</b>${suitSvg(c.s)}</span><span class="pc-br"><b>${c.r}</b>${suitSvg(c.s)}</span></div>`;
   const idx = cls => `<span class="${cls}"><b>${c.r}</b>${suitSvg(c.s)}</span>`;
-  const body = c.r === 'A' ? aceArt(c.s) : PIPS[c.r] ? PIPS[c.r].map(([x, y]) => suitSvg(c.s, 'pip' + (y > 50 ? ' flip' : '')).replace('<svg', `<svg style="left:${x}%;top:${y}%"`)).join('') : `<span class="pc-fbox">${faceArt(c.r, c.s)}</span>`;
+  const body = c.r === 'A' ? aceArt(c.s) : PIPS[c.r].map(([x, y]) => suitSvg(c.s, 'pip' + (y > 50 ? ' flip' : '')).replace('<svg', `<svg style="left:${x}%;top:${y}%"`)).join('');
   return `<div class="pc ${red ? 'red' : ''} ${extra}" ${attrs}>${idx('pc-tl')}<span class="pc-body">${body}</span>${idx('pc-br')}<span class="pc-mid"><b>${c.r}</b>${suitSvg(c.s)}</span></div>`;
 }
 function fmtTime(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
