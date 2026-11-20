@@ -17,7 +17,7 @@ const App = {
   rules: { turnLimit: 0, turnTime: 60, startHP: 100 },
   diff: 'normal',
   player: { name: '플레이어', lv: 1 },
-  battleOpt: { hl: 'size', cd: 'lock', forecast: false },
+  battleOpt: { hl: 'size', forecast: false },   // 쿨타임 표시는 모래시계 한 가지로 고정
   lastResult: null,
   get myDeck() { return this._deck; },
   set myDeck(v) { this._deck = v; store.set('deck', v); },
@@ -65,7 +65,7 @@ const App = {
   go(screen, opts = {}, instant = false) {
     const S = Screens[screen]; if (!S) return;
     this.clear(); closeModal(true); hideTip();
-    $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner,#layer .endov').forEach(x => x.remove());
+    $('#screens').classList.remove('desat'); $$('.fx-crack,.fx-banner,#layer .endov,#layer .coach').forEach(x => x.remove());
     const host = $('#screens'), olds = [...host.children];
     // 사라지는 화면의 id를 지워, 새 화면과 id가 겹쳐 엉뚱한 곳에 그려지는 일을 막음
     // 사라지는 화면은 입력을 받지 않게(inert) — 전환 중 키보드·클릭이 옛 화면으로 가지 않도록
@@ -182,7 +182,6 @@ function settingsModal() {
   const seg = (k, opts) => `<div class="seg" data-k="${k}">${opts.map(([v, t]) => `<button data-v="${v}" class="${String(o[k]) === String(v) ? 'on' : ''}">${t}</button>`).join('')}</div>`;
   const w = modal(`<div class="setm"><h3>설정</h3>
     <label>효과 카드 강조 방식 <small>(마우스를 올렸을 때)</small></label>${seg('hl', [['size', '크기 변화'], ['border', '테두리 색'], ['both', '둘 다']])}
-    <label>쿨타임 표시</label>${seg('cd', [['lock', '자물쇠'], ['hourglass', '모래시계'], ['tint', '색상 변환']])}
     <label>피해 정산 연출</label>${seg('forecast', [[true, '전투 예측 먼저'], [false, '바로 정산']])}
     <label>연출 속도 <small>(피해 정산 중 화면 클릭·Space로 건너뛰기)</small></label><div class="seg" data-fx="speed">${[['normal', '보통'], ['fast', '빠르게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.speed === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>사운드</label>
@@ -191,13 +190,15 @@ function settingsModal() {
     <div class="seg" data-mute="1">${[[false, '소리 켜기'], [true, '전체 음소거']].map(([v, t]) => `<button data-v="${v}" class="${AOPT.mute === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>화면 흔들림 · 타격감 <small>(멀미가 나면 줄이세요)</small></label><div class="seg" data-fx="shake">${[['off', '끄기'], ['normal', '보통'], ['strong', '강하게']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.shake === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <label>섬광 · 깜빡임 <small>(빛에 민감하다면 줄이세요)</small></label><div class="seg" data-fx="flash">${[['normal', '보통'], ['low', '줄이기']].map(([v, t]) => `<button data-v="${v}" class="${FXOPT.flash === v ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <label>튜토리얼 팁 <small>(전투 중 단계별 안내 말풍선)</small></label><div class="seg" data-coach="1">${[[true, '켜기 · 처음부터 다시'], [false, '끄기']].map(([v, t]) => `<button data-v="${v}" class="${!store.get('coachOff', false) === v ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="setm-f">${btn('기록 초기화', '', C.gray, 'id="stReset"')}${btn('덱 초기화', '', C.gray, 'id="stDeck"')}${btn('닫기', '', C.blue, 'id="stX"')}</div></div>`, { cls: 'm-set' });
   $$('.seg', w).forEach(sg => sg.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; let v = b.dataset.v; if (v === 'true') v = true; if (v === 'false') v = false;
     if (sg.dataset.fx) { FXOPT[sg.dataset.fx] = v; saveFxOpt(); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); if (sg.dataset.fx === 'shake') FX.shake(1); if (sg.dataset.fx === 'flash') applyLowFx(); Sfx.play('confirm'); return; }
+    if (sg.dataset.coach) { store.set('coachOff', !v); if (v) store.set('coach', {}); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); toast(v ? '튜토리얼 팁을 처음부터 다시 보여줍니다' : '튜토리얼 팁을 껐습니다'); Sfx.play('confirm'); return; }
     if (sg.dataset.mute) { setMute(v); $$('button', sg).forEach(x => x.classList.toggle('on', x === b)); Sfx.play('confirm'); return; }
     o[sg.dataset.k] = v; store.set('battleOpt', o); $$('button', sg).forEach(x => x.classList.toggle('on', x === b));
-    const bt = $('#bt'); if (bt) bt.className = bt.className.replace(/hl-\w+/, 'hl-' + o.hl).replace(/cd-\w+/, 'cd-' + o.cd);
+    const bt = $('#bt'); if (bt) bt.className = bt.className.replace(/hl-\w+/, 'hl-' + o.hl);
   });
   $$('.vol input', w).forEach(r => {
     r.oninput = () => { AOPT[r.dataset.a] = r.value / 100; r.nextElementSibling.textContent = r.value; AU.apply(); saveAOPT(); };

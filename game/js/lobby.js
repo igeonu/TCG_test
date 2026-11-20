@@ -296,7 +296,8 @@ const GUIDE = [
     <div class="gd-hands">${Object.entries(HANDS).filter(([k]) => k !== 'none').reverse().map(([, [n, b]]) => `<div><span>${n}</span><b class="num">${b}</b></div>`).join('')}</div>
     <p class="mut">점수가 같으면 더 높은 숫자(예: A 원 페어 &gt; 9 원 페어)나 키커로 승부하고, 이긴 쪽이 고정 피해 ${KICKER_DMG}을 줍니다. 패가 완전히 같을 때만 무승부입니다.</p>` },
   { t: '피해 계산', h: () => `<div class="gd-fml"><span>(족보 점수 + 보너스) × 배율</span><b>=</b><span>최종 점수</span></div>
-    <p class="gd-lead">양쪽 최종 점수의 <b>차이만큼</b> 낮은 쪽의 HP가 줄어듭니다. 예) 내 점수 (25 + 3) × 2 = 56, 상대 30 → 상대 HP <b>-26</b></p>
+    <p class="gd-lead">양쪽 최종 점수의 <b>차이만큼</b> 낮은 쪽의 HP가 줄어듭니다. 예) 내 점수 (25 + 3) × 1.6 = 45, 상대 30 → 상대 HP <b>-15</b><br>
+    단, <b>한 번에 줄 수 있는 피해는 상대 최대 HP의 50%까지</b>입니다. 예) 내 점수 100, 상대 10 → 차이는 90이지만 피해는 <b>-50</b></p>
     <ul class="gd-list"><li><b>실드</b> — 피해를 먼저 막아 주고, 다음 라운드 시작 때 사라집니다</li><li><b>감면</b> — 받는 피해를 % 만큼 줄입니다</li><li><b>치명타</b> — 확률적으로 내 점수 ×1.5 (확률은 최대 40%)</li><li><b>지속 피해</b> — 라운드 시작마다 HP 감소</li><li><b>피해 상한</b> — 쇼다운 한 번의 피해는 상대 최대 HP의 50%까지</li><li><b>동시 KO · 턴 제한</b> — 남은 HP → 총 피해량 → 마지막 쇼다운 승자 순으로 승패 결정</li></ul>` },
   { t: '효과 카드', h: () => `<ul class="gd-list"><li><b>액티브</b> — 02·03 단계에 직접 눌러 사용. 쓰면 쿨타임이 생기고 상대에게 공개됩니다</li><li><b>패시브</b> — 장착만 하면 자동 적용. 항상 공개 상태입니다</li><li><b>함정</b> — 상대가 특정 카드를 쓸 때 확률로 반응합니다 (간파·흐트러짐·마법 방패 등)</li></ul>
     <div class="gd-grades"><span class="c">일반</span><span class="r">희귀</span><span class="e">◆ 영웅</span><span class="l">★ 전설</span></div>

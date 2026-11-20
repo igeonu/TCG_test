@@ -19,9 +19,9 @@ input{font-family:inherit}
 #stage{position:absolute;width:1440px;height:810px;transform-origin:0 0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,var(--felt2),var(--felt) 60%,var(--deep));box-shadow:0 20px 60px rgba(0,0,0,.7)}
 #screens,#chrome,#layer,#toasts{position:absolute;inset:0}
 #chrome{pointer-events:none;z-index:20}#chrome .pe{pointer-events:auto}
-#layer{z-index:30;pointer-events:none}#layer>.mwrap,#layer>.endov{pointer-events:auto}
+#layer{z-index:30;pointer-events:none}#layer>.mwrap,#layer>.endov,#layer>.coach{pointer-events:auto}
 /* 이펙트(파티클·섬광·배너·팝업 등)는 절대 클릭을 가로채지 않음 */
-#layer>:not(.mwrap):not(.endov),#layer>:not(.mwrap):not(.endov) *{pointer-events:none!important}
+#layer>:not(.mwrap):not(.endov):not(.coach),#layer>:not(.mwrap):not(.endov):not(.coach) *{pointer-events:none!important}
 #toasts{z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;padding-top:84px;gap:8px}
 .screen{position:absolute;left:0;right:0;top:64px;bottom:72px;overflow:hidden}
 .screen.full{top:0;bottom:0}
@@ -77,7 +77,7 @@ input{font-family:inherit}
 .mwrap.open .mback{opacity:1}.mwrap.open .mbox{transform:none;opacity:1}.mwrap.closing .mbox{transform:scale(.95);opacity:0;transition-duration:.18s}
 .mbox h3{margin:0 0 12px;font-size:22px;font-weight:900}
 .xbtn{position:absolute;right:12px;top:8px;background:none;border:0;font-size:28px;color:var(--mut)}
-.setm{width:520px;padding:24px 26px;display:flex;flex-direction:column;gap:8px}.setm label{font-size:13px;font-weight:900;margin-top:8px}.setm label small{font-weight:400;color:var(--mut)}
+.setm{width:560px;max-height:770px;overflow-y:auto;padding:20px 26px;display:flex;flex-direction:column;gap:6px}.setm label{font-size:13px;font-weight:900;margin-top:6px}.setm label small{font-weight:400;color:var(--mut)}
 .seg{display:flex;border:3px solid #fff;border-radius:8px;overflow:hidden}.seg button{flex:1;border:0;background:transparent;padding:9px;font-weight:900;font-size:13px}.seg button+button{border-left:3px solid #fff}.seg button.on{background:#fff;color:var(--felt)}
 .setm-f{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 
@@ -366,11 +366,9 @@ input{font-family:inherit}
 .ec-tag.rd{background:#3dff95;color:var(--ink);animation:ready 1.4s infinite}.ec-tag.un{background:var(--blue);color:#fff}.ec-tag.ps{background:#fff;color:var(--ink)}
 .cdov{position:absolute;inset:0;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;pointer-events:none}
 .cdov b{font:900 18px 'Noto Sans KR';color:#fff;background:var(--ink);padding:2px 10px;border-radius:6px}
-.cdov .lk,.cdov .hg{display:none}
-.bt.cd-lock .st-cool .cdov{justify-content:flex-end;align-items:flex-end;padding:8px}.bt.cd-lock .st-cool .cdov .lk{display:block;background:var(--ink);color:#fff;border-radius:8px;padding:5px}
-.bt.cd-hourglass .st-cool{filter:grayscale(1);opacity:.65}.bt.cd-hourglass .st-cool .cdov .hg{display:block;color:var(--ink);animation:hg 2s infinite}
+/* 쿨타임 : 카드를 흐리게 하고 모래시계 + 남은 턴 표시 */
+.st-cool{filter:grayscale(1);opacity:.65}.st-cool .cdov .hg{display:block;color:var(--ink);animation:hg 2s infinite}
 @keyframes hg{0%,40%{transform:rotate(0)}50%,100%{transform:rotate(180deg)}}
-.bt.cd-tint .st-cool{background:#ffd1d6;border-color:var(--red)}.bt.cd-tint .st-cool .ec-n::after{content:'(쿨타임)';font-size:11px;margin-left:2px;color:#c2283a}.bt.cd-tint .st-cool .cdov b{background:#c2283a}
 .cdov.seal{background:rgba(125,76,196,.55)}.cdov.seal b{background:var(--purple)}
 .fan .ec.new{animation:newF 1s}@keyframes newF{0%,60%{box-shadow:0 0 0 5px var(--gold),0 0 40px var(--gold)}}
 .fan.pflash .ec{opacity:.3;filter:grayscale(.7)}.fan.pflash .ec.pon{opacity:1;filter:none;transform:translate(var(--x),-24px) rotate(0) scale(1.08);z-index:60!important}
@@ -386,7 +384,7 @@ input{font-family:inherit}
 .fan.op .ec:hover{transform:translate(var(--x),-10px) scale(1.15);z-index:30!important}
 .fan.op .ec.back{cursor:default}
 .fan.op .ec.reveal{animation:revealC .6s}@keyframes revealC{0%{transform:translate(var(--x),var(--y)) rotateY(90deg)}100%{transform:translate(var(--x),var(--y)) rotate(var(--r))}}
-.fan.op .cdov b{font-size:11px;padding:1px 5px}.fan.op .cdov .lk svg{width:14px;height:14px}.fan.op .ec-tag{display:none}
+.fan.op .cdov b{font-size:11px;padding:1px 5px}.fan.op .cdov .hg .hgl{width:20px;height:20px}.fan.op .ec-tag{display:none}
 .log{flex:1;min-height:0;overflow:auto;background:var(--pan);border:3px solid var(--ln);border-radius:10px;padding:8px 10px;font-size:12px;color:#cfe6dc;display:flex;flex-direction:column;gap:4px}
 .log div{animation:evIn .3s;line-height:1.4}.log i{font-style:normal;color:#6a9989;margin-right:6px;font-size:14px}.log b{color:#fff}.log b.r{color:var(--red)}
 .bt.flash::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,40,.5));animation:flash .5s forwards}
@@ -420,7 +418,9 @@ input{font-family:inherit}
 .rep{width:920px;padding:24px 28px}
 .rp-h{display:flex;gap:14px;align-items:center;background:var(--pan);border:3px solid var(--red);border-radius:10px;padding:12px 16px;font-size:15px}
 .rp-t{display:flex;justify-content:space-between;align-items:center;margin:16px 0 10px}.rp-t h3{margin:0}
-.rp-cards{display:flex;gap:12px}.rp-c{cursor:pointer}.rp-c .ec{width:158px;height:186px;transition:transform .15s}
+/* 버릴 카드 목록 : 장수(짐꾼으로 최대 7장)에 맞춰 칸을 나눠 모달 밖으로 넘치지 않게 */
+.rp-cards{display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:12px}.rp-c{cursor:pointer;min-width:0}.rp-c .ec{width:100%;max-width:158px;height:auto;aspect-ratio:158/186;transition:transform .15s}
+.rp-warn{margin:10px 0 0;color:#ff9a84;font-weight:700;font-size:13px}
 .rp-c:hover .ec{transform:translateY(-6px)}.rp-c.on .ec{outline:4px solid var(--red);outline-offset:3px;transform:translateY(-6px) rotate(-3deg)}
 .rp-b{display:grid;grid-template-columns:auto 1fr;gap:22px;margin-top:18px}
 .rp-new .ec{outline:4px solid var(--gold);outline-offset:3px}

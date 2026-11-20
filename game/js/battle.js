@@ -89,6 +89,32 @@ function drawHint(hand) {
   return '';
 }
 
+/* ---------- 튜토리얼 코치 팁 : 각 단계를 처음 만날 때 한 번씩, 진행을 막지 않는 말풍선으로 안내 ---------- */
+const COACH = {
+  draft: ['① 드래프트', '효과 덱에서 나온 3장 중 <b>1장</b>을 골라 장착합니다. 장착 칸은 기본 <b>5칸</b>(짐꾼이 있으면 7칸)이고, 가득 차면 1장을 버리고 바꿉니다. 영웅·전설일수록 강력합니다.'],
+  compose: ['② 전투 패 구성', '포커 카드 7장 중 <b>5장</b>을 골라 족보를 만드세요. 어렵다면 <b>[최적 5장 자동 선택]</b>을 누르면 됩니다. <b>리롤</b>로 필요 없는 카드를 바꿀 수 있고, 왼쪽 <b>[? 예시 보기]</b>(H 키)에서 족보 예시를 볼 수 있습니다.'],
+  prep: ['③ 쇼다운 준비', '최종 점수 = <b>(족보 점수 + 보너스) × 배율</b>. 아래 <b>액티브 효과 카드</b>를 눌러 점수를 올리거나 방어를 준비하세요. 다 됐으면 <b>[제출 확정]</b>.'],
+  result: ['④ 피해 정산', '양쪽 점수의 <b>차이만큼</b> 낮은 쪽 HP가 줄어듭니다. 단, 한 번에 줄 수 있는 피해는 <b>상대 최대 HP의 50%까지</b>입니다. 예) 내 점수 100, 상대 10 → 차이 90이지만 피해는 <b>50</b>.'],
+  cool: ['쿨타임', '사용한 액티브 카드에는 <b>모래시계</b>와 남은 턴이 표시되고, 그동안 다시 쓸 수 없습니다. 라운드가 넘어갈 때마다 1씩 줄어듭니다.'],
+  danger: ['HP 위험', 'HP가 30% 이하입니다. <b>방패·금강</b>(실드), <b>긴급 치료</b>(회복), <b>집중·예측</b>(피해 감면) 같은 방어 카드를 아끼지 말고 쓰세요.'],
+};
+function coach(key) {
+  if (!COACH[key] || store.get('coachOff', false)) return;
+  const seen = store.get('coach', {}); if (seen[key]) return;
+  seen[key] = 1; store.set('coach', seen);
+  hideCoach();
+  const [t, b] = COACH[key], el = document.createElement('div');
+  el.className = 'coach';
+  el.innerHTML = `<span class="pix">TIP</span><div><h4>${t}</h4><p>${b}</p></div><div class="coach-f"><button data-a="ok">알겠어요</button><button data-a="off">팁 그만 보기</button></div>`;
+  $('#layer').appendChild(el); Sfx.play('open');
+  el.onclick = e => {
+    const a = e.target.closest('button'); if (!a) return;
+    if (a.dataset.a === 'off') { store.set('coachOff', true); toast('튜토리얼 팁을 껐습니다 · 설정에서 다시 켤 수 있어요'); }
+    hideCoach();
+  };
+}
+function hideCoach() { $$('#layer .coach').forEach(x => x.remove()); }
+
 /* ---------- 상태 ---------- */
 // 시작 카드 : 자기 덱의 일반·희귀 카드 중 무작위 3장 (부족하면 아무 카드로 채움)
 function dealStarters(side) {
@@ -102,7 +128,8 @@ function decideWinner() {
   const dm = s => Object.values(s.stats).reduce((t, x) => t + (x.dmg || 0), 0), da = dm(S.me), db = dm(S.op);
   return da !== db ? da > db : !!S.lastWin;
 }
-const MAX_HIT = .5, CRIT_MAX = 40;   // 쇼다운 한 번의 피해 상한 (상대 최대 HP 대비)
+const MAX_HIT = .5, CRIT_MAX = 40;
+const capOf = s => Math.round(s.maxHp * MAX_HIT);   // 쇼다운 한 번에 s가 받을 수 있는 최대 피해   // 쇼다운 한 번의 피해 상한 (상대 최대 HP 대비)
 let S = null;
 function mkSide(isMe, name, deck, hp) {
   return { isMe, name, hp, maxHp: hp, shield: 0, pool: [...deck], inv: [], cd: {}, hand: [], sel: [], rr: [], rerolls: 0, dots: [], mods: [], smeltMap: {}, undyingUsed: false, storm: 0, counter: 0, immune: false, confuse: false, utilUses: 0, revealed: new Set(), stats: {}, lastUsed: null, usedOrder: 0 };
@@ -162,7 +189,7 @@ function formula(c) {
 /* ---------- 화면 ---------- */
 Screens.battle = {
   full: true, title: '전장',
-  html: () => `<div class="bt hl-${App.battleOpt.hl} cd-${App.battleOpt.cd}" id="bt">
+  html: () => `<div class="bt hl-${App.battleOpt.hl}" id="bt">
   <div class="b-l">
     <div class="b-top"><button class="b-menu" title="메뉴 (Esc)">☰</button><div class="b-round pix">ROUND <b class="num" id="bRound">1</b><small id="bLimit"></small></div></div>
     <ol class="b-steps" id="bSteps">${['드래프트', '전투 패 구성', '쇼다운 준비', '피해 정산'].map((t, i) => `<li data-p="${i + 1}"><b class="pix">0${i + 1}</b>${t}</li>`).join('')}</ol>
@@ -290,7 +317,7 @@ function renderHUD(side) {
   $('.hp-v', el).textContent = Math.max(0, side.hp); el.classList.toggle('low', pct <= 30);
   if (side.isMe && $('#bt')) {
     const danger = pct <= 30 && side.hp > 0 && !S.ended;
-    if (danger && !S.dangerOn) { Sfx.play('danger'); toast('위험! HP가 30% 이하입니다', 'err'); }
+    if (danger && !S.dangerOn) { Sfx.play('danger'); toast('위험! HP가 30% 이하입니다', 'err'); coach('danger'); }
     S.dangerOn = danger; $('#bt').classList.toggle('danger', danger);
   }
   updateMood();
@@ -311,16 +338,16 @@ function cardState(side, id) {
 }
 function renderFan(side) {
   const el = side.isMe ? $('#fanMe') : $('#fanOp'); if (!el) return;
-  const n = side.inv.length, mid = (n - 1) / 2, sp = side.isMe ? (n > 5 ? 86 : 104) : (n > 5 ? 28 : 34), rot = side.isMe ? (n > 5 ? 5 : 6) : 7;
+  const n = side.inv.length, mid = (n - 1) / 2, sp = side.isMe ? (n > 6 ? 74 : n > 5 ? 84 : 104) : (n > 5 ? 28 : 34), rot = side.isMe ? (n > 5 ? 5 : 6) : 7;
   el.innerHTML = side.inv.map((id, i) => {
     const e = EF[id], k = i - mid, style = `--x:${k * sp}px;--y:${Math.abs(k) * (side.isMe ? 9 : 4)}px;--r:${k * rot}deg;z-index:${i + 1}`;
     if (!side.isMe && e.k === 'A' && !side.revealed.has(id)) return `<div class="ec back" style="${style}" data-id="${id}"><span>비공개</span><i>◆</i></div>`;
     const st = cardState(side, id), cdv = side.cd[id] || 0;
-    const ov = st === 'cool' ? `<div class="cdov"><span class="lk">${ui('lock', 28)}</span><span class="hg">${hourglassSvg(32)}</span><b>${cdv}턴</b></div>` : st === 'sealed' ? `<div class="cdov seal"><b>봉인</b></div>` : '';
+    const ov = st === 'cool' ? `<div class="cdov"><span class="hg">${hourglassSvg(32)}</span><b>${cdv}턴</b></div>` : st === 'sealed' ? `<div class="cdov seal"><b>봉인</b></div>` : '';
     const tag = st === 'ready' ? '<div class="ec-tag rd">사용 가능</div>' : st === 'usedNow' ? '<div class="ec-tag un">이번 턴 사용</div>' : st === 'passive' ? '<div class="ec-tag ps">패시브 · 자동</div>' : '';
     return cardHTML(e, 'st-' + st, `style="${style}"`, ov + tag);
   }).join('');
-  if (side.isMe) { $('#invN').textContent = `${side.inv.length} / ${slotsOf(side)}`; $('#poolN').textContent = side.pool.length; }
+  if (side.isMe) { $('#invN').textContent = `${side.inv.length} / ${slotsOf(side)}`; $('#poolN').textContent = side.pool.length; if (side.inv.some(id => cardState(side, id) === 'cool')) coach('cool'); }
 }
 function renderHand(anim) {
   const el = $('#handMe'); if (!el) return; const s = S.me;
@@ -437,6 +464,7 @@ function openDraft() {
   if (S.phase !== 1 || S.drafted === S.round) return;   // 라운드당 드래프트 1회 (자동 열기와 겹치지 않게)
   const offer = shuffle(S.me.pool).slice(0, 3);
   if (!offer.length) { toast('효과 덱이 비었습니다 · 드래프트 생략'); oppDraft(); deal(); return; }
+  coach('draft');
   const tok = S.alive, hi = g => g === 'E' || g === 'L';
   // 기본 선택 : 가장 높은 등급 카드
   let idx = offer.reduce((b, id, i) => GRADE_ORDER[EF[id].g] > GRADE_ORDER[EF[offer[b]].g] ? i : b, 0);
@@ -504,17 +532,20 @@ function openReplace(newId, celebrate = false) {
   const w = modal(`<div class="rep">
     <div class="rp-h"><span class="tagb pix">FULL ${S.me.inv.length}/${slotsOf(S.me)}</span><b>빈 슬롯이 없습니다. ${codeHTML(ne)} ${ne.name}을(를) 받으려면 기존 카드 1장을 버리세요.</b></div>
     <div class="rp-t"><h3>기존 장착</h3><span class="tagb" id="rpChip">버릴 카드를 선택하세요</span></div>
-    <div class="rp-cards">${S.me.inv.map((id, i) => `<div class="rp-c" data-i="${i}">${cardHTML(EF[id])}</div>`).join('')}</div>
+    <div class="rp-cards" style="--n:${S.me.inv.length}">${S.me.inv.map((id, i) => `<div class="rp-c" data-i="${i}">${cardHTML(EF[id])}</div>`).join('')}</div>
     <div class="rp-b"><div class="rp-new">${cardHTML(ne)}</div><div class="rp-prev" id="rpPrev"><h3>교체 미리보기</h3><p class="mut">버릴 카드를 고르면 얻는 효과와 잃는 효과를 비교해 보여줍니다.</p></div></div>
     <div class="dm-f"><span class="mut">교체 후 기존 카드의 쿨타임은 새 카드에 이어지지 않습니다</span><div class="row">${btn('새 카드 포기', '', C.gray, 'id="rpNo"')}${btn('교체 확정', '', C.red, 'id="rpOk" disabled', 'pri')}</div></div></div>`, { cls: 'm-game lock', backdrop: false });
   $$('.rp-c', w).forEach(c => c.onclick = () => {
     pi = +c.dataset.i; $$('.rp-c', w).forEach(x => x.classList.toggle('on', x === c));
     const old = EF[S.me.inv[pi]];
-    $('#rpChip', w).textContent = `${codeTxt(old)} ${old.name} 버리기`;
+    // 짐꾼(+2칸)을 버리면 칸이 줄어 남은 카드가 넘치므로 막음
+    const after = S.me.inv.map((id, i) => i === pi ? newId : id), over = after.length > slotsOf({ inv: after });
+    $('#rpChip', w).textContent = over ? `${old.name}은(는) 버릴 수 없습니다` : `${codeTxt(old)} ${old.name} 버리기`;
     $('#rpPrev', w).innerHTML = `<h3>교체 미리보기 · ${codeHTML(old)} → ${codeHTML(ne)}</h3>
       <div class="pv-r"><span>장착</span><b class="num">${S.me.inv.length}/${slotsOf(S.me)} → ${S.me.inv.length}/${slotsOf({ inv: S.me.inv.map((id, i) => i === pi ? newId : id) })}</b></div>
-      <div class="cmp"><div class="gain"><small>얻는 효과</small><b>${ne.name}</b><p>${ne.desc}</p></div><div class="lose"><small>잃는 효과</small><b>${old.name}</b><p>${old.desc}${S.me.cd[old.id] ? ` (쿨타임 ${S.me.cd[old.id]}턴 남음)` : ''}</p></div></div>`;
-    $('#rpOk', w).disabled = false;
+      <div class="cmp"><div class="gain"><small>얻는 효과</small><b>${ne.name}</b><p>${ne.desc}</p></div><div class="lose"><small>잃는 효과</small><b>${old.name}</b><p>${old.desc}${S.me.cd[old.id] ? ` (쿨타임 ${S.me.cd[old.id]}턴 남음)` : ''}</p></div></div>
+      ${over ? `<p class="rp-warn">⚠ ${old.name}을(를) 버리면 장착 칸이 ${slotsOf({ inv: after })}칸으로 줄어 카드 ${after.length}장을 둘 수 없습니다. 다른 카드를 고르세요.</p>` : ''}`;
+    $('#rpOk', w).disabled = over;
   });
   $('#rpNo', w).onclick = () => { closeModal(); addLog(`새 카드 ${ne.name} 포기`); deal(); };
   $('#rpOk', w).onclick = async () => {
@@ -566,7 +597,9 @@ function oppDraft() {
   const s = S.op, offer = shuffle(s.pool).slice(0, 3); if (!offer.length) return;
   const id = AI().smartDraft ? offer.sort((a, b) => GRADE_ORDER[EF[b].g] - GRADE_ORDER[EF[a].g])[0] : pick(offer);
   if (s.inv.length >= slotsOf(s)) {
-    const lo = s.inv.slice().sort((a, b) => GRADE_ORDER[EF[a].g] - GRADE_ORDER[EF[b].g])[0];
+    // 짐꾼을 버리면 칸이 줄어 넘치므로 AI도 버릴 후보에서 제외
+    const lo = s.inv.filter(x => { const a = s.inv.map(y => y === x ? id : y); return a.length <= slotsOf({ inv: a }); }).sort((a, b) => GRADE_ORDER[EF[a].g] - GRADE_ORDER[EF[b].g])[0];
+    if (!lo) return;
     if (GRADE_ORDER[EF[lo].g] >= GRADE_ORDER[EF[id].g]) return;
     s.inv = s.inv.map(x => x === lo ? id : x); delete s.cd[lo];
   } else s.inv.push(id);
@@ -606,6 +639,7 @@ function evCompose() {
   b('rrgo') && (b('rrgo').onclick = doReroll);
   b('auto') && (b('auto').onclick = () => { S.me.sel = best5(S.me.hand); renderHand(); renderTools(); evCompose(); });
   b('ok').onclick = () => { if (S.phase !== 2 || S.me.sel.length !== 5 || S.rrMode) return; S.phase = 3; renderAll(); evPrep(); };
+  coach('compose');
 }
 function onHandClick(e) {
   const c = e.target && e.target.closest && e.target.closest('.pc'); if (!c || !S || S.busy || S.ended) return;
@@ -645,11 +679,13 @@ function evPrep() {
   const used = s.mods.map(m => `<span class="uchip">${m.label} 사용 · 재사용 ${s.cd[m.src] || 0}턴</span>`).join('');
   ev(`<div class="ev-k"><b class="pix">03</b> 쇼다운 준비 <span class="ev-r num">5 / 5 제출 가능</span><span class="ev-rt">내 패 공개 전 · 상대도 제출 대기</span></div>
     <div class="ev-2"><div><h2>${c.h.name}</h2><p>제출 예정: ${s.sel.map(i => `<b class="${isRed(s.hand[i].s) ? 'r' : ''}">${s.hand[i].s}${s.hand[i].r}</b>`).join(' · ')}</p></div>
-    <div class="ev-f"><div class="fml num">${formula(c)}</div><p>${[`족보 ${c.base}`, ...c.parts.map(p => p.t === 'b' ? `${p.label} +${p.v}` : `${p.label} ×${fm(p.v)}`)].join(' / ')}${c.crit ? ` · 치명타 ${c.crit}%` : ''}</p></div></div>
+    <div class="ev-f"><div class="fml num">${formula(c)}</div><p>${[`족보 ${c.base}`, ...c.parts.map(p => p.t === 'b' ? `${p.label} +${p.v}` : `${p.label} ×${fm(p.v)}`)].join(' / ')}${c.crit ? ` · 치명타 ${c.crit}%` : ''}</p>
+      <p class="cap-note ${c.score > capOf(S.op) ? 'hot' : ''}">한 번에 줄 수 있는 피해는 <b>최대 ${capOf(S.op)}</b> (상대 최대 HP의 ${MAX_HIT * 100}%)${c.score > capOf(S.op) ? ' · 점수가 더 높아도 넘는 만큼은 버려집니다' : ''}</p></div></div>
     <div class="ev-row line">${used || '<span class="uchip ghost">아래 액티브 효과 카드를 눌러 사용할 수 있습니다</span>'}
       ${evBtn('← 패 다시 고르기', 'back', false, s.mods.length)}${evBtn('제출 확정 → 04', 'go', true)}</div>`);
   $('#ev [data-a=back]').onclick = () => { S.phase = 2; renderAll(); evCompose(); };
   $('#ev [data-a=go]').onclick = resolve;
+  coach('prep');
 }
 function cardDetail(id, opp) {
   const side = opp ? S.op : S.me, e = EF[id], st = cardState(side, id), cdv = side.cd[id] || 0;
@@ -824,9 +860,9 @@ async function resolve() {
     }
   }
   S.lastWin = win ? win.isMe : S.lastWin;
-  const lose = win ? other(win) : null, raw = kicker ? KICKER_DMG : Math.abs(sA - sB), cap = lose ? Math.round(lose.maxHp * MAX_HIT) : raw, diff = Math.min(raw, cap);
+  const lose = win ? other(win) : null, raw = kicker ? KICKER_DMG : Math.abs(sA - sB), cap = lose ? capOf(lose) : raw, diff = Math.min(raw, cap);
   if (raw > cap) addLog(`<b>피해 상한</b> · ${raw} → ${cap} (최대 HP의 ${MAX_HIT * 100}%)`);
-  if (App.battleOpt.forecast && !S.skip) await forecast(sA, sB, A, B, win, diff, kicker);
+  if (App.battleOpt.forecast && !S.skip) await forecast(sA, sB, A, B, win, diff, kicker, raw);
   if (!live(tok)) return;
   const box = $('#ev');
   // 점수 충돌 연출
@@ -848,6 +884,8 @@ async function resolve() {
   else {
     const wm = win.mods, pierce = wm.some(m => m.fx.pierce), brk = wm.reduce((a, m) => a + (m.fx.breakS || 0), 0);
     if (kicker) { await FX.banner('KICKER!', `점수 동점 · ${kicker} → 고정 피해 ${KICKER_DMG}`, C.blue); if (!live(tok)) return; }
+    // 피해 상한 : 점수 차가 커도 상대 최대 HP의 50%까지만 들어간다는 것을 화면으로 알림
+    if (raw > diff) { await FX.banner('MAX DAMAGE', `점수 차 ${raw} → 피해는 최대 ${diff}까지 (최대 HP의 ${MAX_HIT * 100}%)`, C.yellow); if (!live(tok)) return; }
     const from = FX.center(win.isMe ? eMe : eOp), to = FX.center(lose.isMe ? $('#hudMe') : $('#hudOp'));
     await FX.beam(from, to, win.isMe ? '#8db8ff' : '#ff9a84');
     if (!live(tok)) return;
@@ -880,10 +918,11 @@ async function resolve() {
   await pace(500); if (!live(tok)) return;
   S.busy = false; S.skip = false;
   ev(`<div class="ev-k"><b class="pix">04</b> 피해 정산 결과 <span class="ev-r num">ROUND ${S.round}</span></div>
-    <div class="ev-2"><div><h2>${!win ? '무승부' : win.isMe ? (kicker ? '키커 승리!' : '공격 성공!') : '피해를 받았습니다'}</h2><p>내 점수 <b>${sA}</b> · 상대 점수 <b>${sB}</b> · ${kicker ? `동점 → ${kicker}` : `차이 <b class="r">${diff}</b>`}</p></div>
+    <div class="ev-2"><div><h2>${!win ? '무승부' : win.isMe ? (kicker ? '키커 승리!' : '공격 성공!') : '피해를 받았습니다'}</h2><p>내 점수 <b>${sA}</b> · 상대 점수 <b>${sB}</b> · ${kicker ? `동점 → ${kicker}` : `차이 <b class="r">${raw}</b>${raw > diff ? ` → <b class="r">상한 ${diff}</b>` : ''}`}</p></div>
       <div class="ev-hp"><div><span>나</span><b class="num">${me.hp}</b></div><div><span>상대</span><b class="num">${op.hp}</b></div></div></div>
     <div class="ev-row"><span class="mut">생존 시 다음 라운드 · 쿨타임 -1 · 실드 소멸</span>${evBtn('다음 라운드 →', 'next', true)}</div>`);
   $('#ev [data-a=next]').onclick = startRound;
+  coach('result');
 }
 function applyDamage(t, dmg, o = {}) {
   const hud = t.isMe ? $('#hudMe') : $('#hudOp'); t._lastTaken = 0;
@@ -930,7 +969,7 @@ function attribute(win, Cc, dealt, kicker) {
   const poker = dealt - given;
   if (poker > 0) { stat(win, 'POKER', 'dmg', poker); stat(win, 'POKER', 'uses', 1); }
 }
-function forecast(sA, sB, A, B, win, diff, kicker) {
+function forecast(sA, sB, A, B, win, diff, kicker, raw = diff) {
   return new Promise(res => {
     const col = (s, sc, Cc) => `<div class="fc-col ${s.isMe ? 'me' : 'op'}"><div class="fc-n">${s.isMe ? '나' : s.name}</div>
       <div class="fc-r"><span>족보</span><b>${Cc.h.name}</b></div><div class="fc-r"><span>최종 점수</span><b class="big num">${sc}</b></div>
@@ -938,7 +977,7 @@ function forecast(sA, sB, A, B, win, diff, kicker) {
       <div class="fc-r"><span>감면</span><b class="num">${Math.min(80, s.mods.reduce((a, m) => a + (m.fx.reduce || 0), 0))}%${s.immune ? ' · 무적' : ''}</b></div>
       <div class="fc-r hl"><span>예상 받는 피해</span><b class="num">${win && win !== s ? diff : 0}</b></div></div>`;
     const w = modal(`<div class="fc"><div class="fc-h pix">BATTLE FORECAST <small>전투 예측 · 공격 전 예상 결과</small></div>
-      <div class="fc-b">${col(S.me, sA, A)}<div class="fc-mid"><b class="num">${diff}</b><span>${kicker ? `동점 · ${kicker}` : "점수 차"}</span><em>${!win ? '무승부' : win.isMe ? '→ 상대에게' : '← 나에게'}</em></div>${col(S.op, sB, B)}</div>
+      <div class="fc-b">${col(S.me, sA, A)}<div class="fc-mid"><b class="num">${diff}</b><span>${kicker ? `동점 · ${kicker}` : raw > diff ? `점수 차 ${raw} → 피해 상한 ${diff}` : '점수 차'}</span><em>${!win ? '무승부' : win.isMe ? '→ 상대에게' : '← 나에게'}</em></div>${col(S.op, sB, B)}</div>
       <div class="fc-f"><span class="mut">실드·감면·추가 효과는 정산 때 적용됩니다</span>${btn('정산 개시', 'GO', C.red, 'id="fcGo"', 'pri')}</div></div>`, { cls: 'm-game lock', backdrop: false, onClose: res });
     Sfx.play('whoosh');
     $('#fcGo', w).onclick = () => closeModal();
