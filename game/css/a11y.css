@@ -1,0 +1,19 @@
+/* =========================================================
+   접근성 : 섬광·깜빡임 줄이기 (#stage.lowfx) · 확인 창
+   ========================================================= */
+.lowfx .bt.danger::before{animation:none;box-shadow:inset 0 0 60px rgba(255,30,30,.3)}
+.lowfx .hud.low .hud-hp b,.lowfx .tchip.timer.warn,.lowfx .blink{animation:none}
+.lowfx .bt.flash::after,.lowfx .bt.flashop::after{display:none}
+.lowfx .fx-star{opacity:.35}
+.lowfx .fx-banner.hot .fb-t,.lowfx .fx-cutin.leg .ci-txt b{animation:none}
+.lowfx .ci-band::before{animation:none}
+.lowfx .fb-band{animation:fbBand 1.15s cubic-bezier(.7,0,.3,1) forwards}
+.lowfx .crt{animation:none}
+.lowfx .hud.hit{animation:none;border-color:var(--red)}
+@media (prefers-reduced-motion:reduce){
+  .holo,.g-E>.holo::after,.g-L>.holo::after,.ec.g-L .ec-n{animation:none}
+}
+.cfm{width:460px;padding:24px 26px;display:flex;flex-direction:column;gap:10px}
+.cfm h3{margin:0;font:900 24px 'Noto Sans KR'}
+.cfm p{margin:0;color:var(--mut);font-size:14px;line-height:1.6}
+.cfm-f{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}

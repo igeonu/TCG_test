@@ -1,0 +1,87 @@
+/* =========================================================
+   등급 연출 — 영웅(EPIC) · 전설(LEGEND)
+   ========================================================= */
+:root{--epic:#b06bff;--leg:#ffd23f}
+
+/* ---------- 홀로그램 광택 (어디서든) ---------- */
+.ec,.mc{isolation:isolate}
+.holo{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:2;mix-blend-mode:color-dodge;opacity:.55;background-size:260% 260%;animation:holo 3.2s linear infinite}
+.g-E>.holo{background-image:linear-gradient(115deg,transparent 20%,rgba(176,107,255,.55) 32%,rgba(255,255,255,.7) 38%,rgba(176,107,255,.5) 44%,transparent 58%)}
+.g-L>.holo{opacity:.7;background-image:linear-gradient(115deg,transparent 12%,rgba(255,90,60,.45) 22%,rgba(255,224,138,.75) 30%,rgba(255,255,255,.9) 35%,rgba(61,255,149,.45) 42%,rgba(42,107,189,.5) 50%,rgba(176,107,255,.5) 58%,transparent 70%)}
+@keyframes holo{0%{background-position:120% 120%}100%{background-position:-120% -120%}}
+/* 바깥 은은한 오라 */
+.g-E>.holo::after,.g-L>.holo::after{content:"";position:absolute;inset:-3px;border-radius:inherit;animation:aura 2.2s ease-in-out infinite}
+.g-E>.holo::after{box-shadow:0 0 14px 2px var(--epic)}
+.g-L>.holo::after{box-shadow:0 0 22px 4px var(--leg),0 0 40px 6px rgba(255,90,60,.35)}
+@keyframes aura{50%{opacity:.35}}
+/* 전설 카드 이름 금박 */
+.ec.g-L .ec-n{background:linear-gradient(90deg,#8a5a00,#d4a017,#7a4a00,#d4a017);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:goldTxt 2.5s linear infinite}
+@keyframes goldTxt{to{background-position:200% 0}}
+.ec.g-E .ec-n{color:#5b2a9a}
+
+/* ---------- 드래프트 : 뒷면 → 공개 ---------- */
+.dm-flip{position:relative}
+.dm-back{position:absolute;inset:0;z-index:5;border-radius:10px;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
+.dm-c.hid .ec{visibility:hidden}
+.dm-c.hid{pointer-events:none}
+.dm-c.charging .dm-back{animation:charge .09s steps(2) infinite;box-shadow:0 0 0 4px var(--rc),0 0 50px 10px var(--rc)}
+/* 충전 중 : 뒷면 무늬 위에 등급 색을 입혀 공개 전에 등급을 예고 */
+.dm-back::after{content:'';position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity .2s;mix-blend-mode:color;background:var(--rc,#fff)}
+.dm-c.charging .dm-back::after{opacity:1;animation:chargeTint .18s steps(2) infinite}
+@keyframes chargeTint{50%{opacity:.55}}
+@keyframes charge{50%{transform:translate(3px,-2px) rotate(1.5deg)}}
+.dm-c.rev .dm-back{animation:backOut .28s ease-in forwards}
+.dm-c.rev .ec{animation:frontIn .4s .14s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes backOut{to{transform:rotateY(90deg) scale(1.1);opacity:0}}
+@keyframes frontIn{from{transform:rotateY(-90deg) scale(1.15)}}
+.rar-E,.rar-L{--rc:var(--epic)}.rar-L{--rc:var(--leg)}
+/* 공개된 고등급 카드 뒤 후광 */
+.dm-c.rar-L.done .dm-flip::before,.dm-c.rar-E.done .dm-flip::before{content:"";position:absolute;left:50%;top:50%;width:360px;height:360px;margin:-180px;border-radius:50%;z-index:-1;pointer-events:none;animation:rays 9s linear infinite;-webkit-mask:radial-gradient(circle,#000 25%,transparent 70%);mask:radial-gradient(circle,#000 25%,transparent 70%)}
+.dm-c.rar-L.done .dm-flip::before{background:repeating-conic-gradient(rgba(255,210,63,.55) 0 10deg,transparent 10deg 24deg)}
+.dm-c.rar-E.done .dm-flip::before{background:repeating-conic-gradient(rgba(176,107,255,.45) 0 10deg,transparent 10deg 24deg)}
+.dm-c .rar-tag{display:none}
+.dm-c.rar-E.done .rar-tag,.dm-c.rar-L.done .rar-tag{display:block;position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);z-index:6;font:400 13px 'Silkscreen';padding:3px 10px;border-radius:6px;border:3px solid var(--ink);white-space:nowrap;animation:tagPop .5s cubic-bezier(.2,1.8,.4,1)}
+.dm-c.rar-E .rar-tag{background:var(--epic);color:#fff}
+.dm-c.rar-L .rar-tag{background:linear-gradient(90deg,#ffd23f,#fff6c8,#ffd23f);background-size:200% 100%;color:#5a3a00;animation:tagPop .5s cubic-bezier(.2,1.8,.4,1),goldTxt 1.5s linear infinite}
+@keyframes tagPop{from{transform:translateX(-50%) scale(2.2)}}
+.dm-skip{font-size:12px;color:var(--mut)}
+
+/* ---------- 필살기 컷인 ---------- */
+.fx-cutin{position:absolute;inset:0;z-index:92;pointer-events:none;overflow:hidden}
+.ci-dim{position:absolute;inset:0;background:rgba(0,0,0,.6);animation:ciDim var(--dur) ease forwards}
+@keyframes ciDim{0%{opacity:0}12%,82%{opacity:1}100%{opacity:0}}
+.ci-rays{position:absolute;left:50%;top:50%;width:2000px;height:2000px;margin:-1000px;animation:rays 6s linear infinite,ciDim var(--dur) ease forwards;-webkit-mask:radial-gradient(circle,#000 10%,transparent 55%);mask:radial-gradient(circle,#000 10%,transparent 55%)}
+.fx-cutin.leg .ci-rays{background:repeating-conic-gradient(rgba(255,210,63,.4) 0 6deg,transparent 6deg 15deg)}
+.fx-cutin.epi .ci-rays{background:repeating-conic-gradient(rgba(176,107,255,.35) 0 6deg,transparent 6deg 15deg)}
+.fx-cutin.rival .ci-rays{background:repeating-conic-gradient(rgba(255,90,60,.35) 0 6deg,transparent 6deg 15deg)}
+.ci-band{position:absolute;left:-10%;right:-10%;top:50%;height:270px;margin-top:-135px;transform:skewY(-7deg);border-top:8px solid #fff;border-bottom:8px solid #fff;box-shadow:0 0 0 7px var(--ink),0 30px 60px rgba(0,0,0,.6);display:flex;align-items:center;gap:40px;padding-left:24%;animation:ciBand var(--dur) cubic-bezier(.7,0,.3,1) forwards;overflow:hidden}
+.fx-cutin.epi .ci-band{background:repeating-linear-gradient(-45deg,#7d4cc4 0 30px,#5b2a9a 30px 60px)}
+.fx-cutin.leg .ci-band{background:repeating-linear-gradient(-45deg,#e6a33c 0 30px,#b8720a 30px 60px)}
+.fx-cutin.rival .ci-band{background:repeating-linear-gradient(-45deg,#ff5a3c 0 30px,#a3260f 30px 60px)}
+@keyframes ciBand{0%{clip-path:inset(0 100% 0 0)}10%{clip-path:inset(0 0 0 0)}85%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 100%)}}
+.ci-band::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 60px,rgba(255,255,255,.18) 60px 64px);animation:speed .25s linear infinite}
+@keyframes speed{to{background-position:-128px 0}}
+.ci-card{position:relative;transform:skewY(7deg) rotate(-6deg);animation:ciCard var(--dur) cubic-bezier(.2,1.2,.4,1) forwards}
+.ci-card .ec{width:180px;height:246px;padding:14px;box-shadow:10px 10px 0 rgba(0,0,0,.45)}
+.ci-card .ec-ic{margin:auto}.ci-card .ec-ic svg{width:56px;height:56px}.ci-card .ec-n{font-size:26px}.ci-card .ec-d{flex:0;font-size:12px}
+@keyframes ciCard{0%{transform:skewY(7deg) translateX(900px) rotate(25deg) scale(1.4)}14%{transform:skewY(7deg) translateX(-20px) rotate(-8deg)}22%{transform:skewY(7deg) rotate(-6deg)}80%{transform:skewY(7deg) rotate(-6deg) scale(1.04)}100%{transform:skewY(7deg) translateX(-900px) rotate(-25deg)}}
+.ci-txt{position:relative;transform:skewY(7deg);color:#fff;display:flex;flex-direction:column;gap:4px;animation:ciTxt var(--dur) ease forwards}
+.ci-txt small{font-size:22px;letter-spacing:.12em;text-shadow:3px 3px 0 var(--ink)}
+.fx-cutin.leg .ci-txt small{color:#fff6c8}
+.ci-txt b{font:900 110px/1 'Noto Sans KR';text-shadow:7px 7px 0 var(--ink),-3px -3px 0 var(--ink),3px -3px 0 var(--ink),-3px 3px 0 var(--ink)}
+.fx-cutin.leg .ci-txt b{background:linear-gradient(180deg,#fff 0%,#fff6c8 40%,#ffd23f 60%,#e08a00 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(6px 6px 0 #2a1800);text-shadow:none}
+.ci-txt em{font-style:normal;font-size:20px;font-weight:900;background:var(--ink);padding:4px 14px;border-radius:6px;align-self:flex-start}
+@keyframes ciTxt{0%,8%{opacity:0;transform:skewY(7deg) translateX(-200px)}20%{opacity:1;transform:skewY(7deg)}84%{opacity:1;transform:skewY(7deg)}100%{opacity:0;transform:skewY(7deg) translateX(200px)}}
+.fx-cutin.leg .ci-txt b{animation:ciShake .08s steps(2) 8 .35s}
+@keyframes ciShake{50%{transform:translate(4px,-3px)}}
+
+/* ---------- 획득 축하 ---------- */
+.fx-get{position:absolute;left:50%;top:50%;z-index:93;pointer-events:none;transform:translate(-50%,-50%)}
+.fx-get .ec{width:200px;height:272px;padding:14px;animation:getCard 1.8s cubic-bezier(.2,1.4,.4,1) forwards}
+.fx-get .ec-ic{margin:auto}.fx-get .ec-ic svg{width:60px;height:60px}.fx-get .ec-n{font-size:28px}.fx-get .ec-d{flex:0;font-size:12px}
+@keyframes getCard{0%{transform:scale(.2) rotateY(540deg);opacity:0}30%{transform:scale(1.25) rotateY(0);opacity:1}40%{transform:scale(1.1)}85%{transform:scale(1.1);opacity:1}100%{transform:scale(.6) translateY(300px);opacity:0}}
+.fx-get::before{content:"";position:absolute;left:50%;top:50%;width:900px;height:900px;margin:-450px;z-index:-1;border-radius:50%;animation:rays 7s linear infinite,getRay 1.8s ease forwards;-webkit-mask:radial-gradient(circle,#000 15%,transparent 65%);mask:radial-gradient(circle,#000 15%,transparent 65%)}
+.fx-get.L::before{background:repeating-conic-gradient(rgba(255,210,63,.6) 0 8deg,transparent 8deg 18deg)}
+.fx-get.E::before{background:repeating-conic-gradient(rgba(176,107,255,.5) 0 8deg,transparent 8deg 18deg)}
+@keyframes getRay{0%{opacity:0;transform:scale(.3)}25%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+.dm-c.done .dm-back{display:none}

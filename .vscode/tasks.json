@@ -4,7 +4,7 @@
     {
       "label": "Rune Duel 서버 실행",
       "type": "shell",
-      "command": "python -u -m http.server 5173 --directory rune-duel-ui",
+      "command": "python -u serve.py 5173",
       "isBackground": true,
       "problemMatcher": {
         "owner": "rune-duel",
